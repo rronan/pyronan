@@ -1,0 +1,9 @@
+function: Positional_Reconstruction_Network.train
+parser: Positional_Reconstruction_Network.parse_args.parse_args
+args:
+    - foo: bar
+sweep:
+    -
+        - foo: bar
+    -
+        - foo: bar
