@@ -12,28 +12,44 @@ class dummy_scheduler:
         return None
 
 
+class default_args_optim:
+    optimizer = "Adam"
+    lr = 0.001
+    lr_decay = 0.1
+    lr_patience = 10
+    weight_decay = 0
+    grad_clip = None
+
+
 class Model(object):
-    def __init__(self):
+    def __init__(self, core_module=None, args_optim=None):
         super().__init__()
         self.device = "cpu"
         self.is_data_parallel = False
-        self.optimizer = None
-        self.scheduler = dummy_scheduler
+        self.core_module = core_module
+        if core_module is None:
+            self.optimizer = None
+            self.scheduler = dummy_scheduler
+        else:
+            self.set_optim(args_optim)
 
-    def set_optim(self, args):
-        self.grad_clip = args.grad_clip
+    def set_optim(self, args_optim=None):
+        if args_optim is None:
+            print("args_optim set to default", default_args_optim)
+            args_optim = default_args_optim
+        self.grad_clip = args_optim.grad_clip
         kwargs = {}
-        if args.lr is not None:
-            kwargs["lr"] = args.lr
-        if args.weight_decay is not None:
-            kwargs["weight_decay"] = args.weight_decay
-        self.optimizer = getattr(optim, args.optimizer)(
+        if args_optim.lr is not None:
+            kwargs["lr"] = args_optim.lr
+        if args_optim.weight_decay is not None:
+            kwargs["weight_decay"] = args_optim.weight_decay
+        self.optimizer = getattr(optim, args_optim.optimizer)(
             self.core_module.parameters(), **kwargs
         )
         self.scheduler = ReduceLROnPlateau(
             self.optimizer,
-            patience=args.lr_patience,
-            factor=args.lr_decay,
+            patience=args_optim.lr_patience,
+            factor=args_optim.lr_decay,
             verbose=True,
             eps=1e-9,
         )
