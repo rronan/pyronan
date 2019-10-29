@@ -111,18 +111,5 @@ class Model(object):
     def get_num_parameters(self):
         return sum([m.numel() for m in self.core_module.parameters()])
 
-    def make_dot(self, *x):
-        dot = make_dot(self(*x), params=dict(self.core_module.named_parameters()))
-        dot.render("dot", view=False)
-
-    def make_dot_from_trace(self, *x):
-        with torch.onnx.set_training(self.core_module, False):
-            trace, _ = torch.jit.get_trace_graph(self.core_module, args=(*x,))
-        dot = make_dot_from_trace(trace)
-        dot.render("dot_from_trace", view=False)
-
-    def output(self):
-        raise NotImplementedError
-
     def __call__(self, *args, **kwargs):
         return self.core_module.forward(*args, **kwargs)
