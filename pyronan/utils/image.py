@@ -44,7 +44,7 @@ COLOR_LIST = [
 
 
 def resize(array, hw):
-    return cv2.resize(array, (hw,) * 2, interpolation="INTER_NEAREST")
+    return cv2.resize(array, (hw,) * 2, interpolation=cv2.INTER_NEAREST)
 
 
 def image2mask(arr, color_list=COLOR_LIST):
