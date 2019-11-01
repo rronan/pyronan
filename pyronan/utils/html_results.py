@@ -116,7 +116,7 @@ def make_html(config, checkpoint_list, params_list, key="loss", outdir=None):
     with open(tempdir / "index.html", "w") as f:
         f.write(html)
     if outdir is None:
-        outdir = os.environ["PYRONAN_DATA_DIR"]
+        outdir = os.environ["PYRONAN_HTML_DIR"]
     # TODO mv temp to outdir
 
 
