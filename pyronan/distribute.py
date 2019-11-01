@@ -2,12 +2,12 @@ import argparse
 import itertools
 import time
 from copy import copy
+from pathlib import Path
 from pydoc import locate
 
 import yaml
 from dask.distributed import Client
 from dask_jobqueue import SGECluster
-
 
 # dask-submit <remote-client-address>:<port> gridsearch.py
 
@@ -24,6 +24,14 @@ def init_cluster(args):
     cluster.scale(jobs=args.jobs)
     client = Client(cluster)
     return client
+
+
+def make_config(config_path):
+    with open(config_path, "r") as f:
+        config = yaml.load(f)
+    if "name" not in config:
+        config["name"] = config_path.stem
+    return config
 
 
 def update_opt(opt, dict_):
@@ -67,7 +75,7 @@ def visualize(config, job_list):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("sweep", default="sweep.yaml")
+    parser.add_argument("config_path", type=Path, default="sweep.yaml")
     parser.add_argument("--exclude_nodes", nargs="+", default=[])
     parser.add_argument("--queue", default="lowgpu.q,gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=20)
@@ -82,10 +90,7 @@ def main():
     args = parse_args()
     print(args)
     client = init_cluster(args)
-    with open(args.sweep, "r") as f:
-        config = yaml.load(f)
-    if "name" not in config:
-        config["name"] = args.sweep.name
+    config = make_config(args.config_path)
     job_list = submit(client, config)
     while is_running(job_list):
         time.sleep(args.wait)
