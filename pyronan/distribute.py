@@ -10,6 +10,7 @@ import yaml
 from dask.distributed import Client
 from dask_jobqueue import SGECluster
 from pyronan.utils.html_results import make_html
+from pyronan.utils.misc import append_timestamp
 
 # dask-submit <remote-client-address>:<port> distribute.py
 
@@ -19,7 +20,7 @@ def init_cluster(args):
         queue=args.queue,
         cores=1,
         # processes=1,
-        local_directory=args.local_directory,
+        local_directory=args.logs_dir,
         memory=f"{args.mem_req}GB",
         resource_spec=f"h_vmem={args.h_vmem},mem_req={args.mem_req}",
         interface="ib0",
@@ -46,12 +47,12 @@ def update_opt(opt, dict_):
 
 def make_args_list(config):
     res = []
-    timestamp = time.strftime("%y%m%d_%H%M%S")
+    config["name"] = append_timestamp(config["name"])
     baseopt = update_opt(locate(config["parser"])([]), config["args"])
     for sweep in config["grids"]:
         for values in itertools.product(*sweep.values()):
             opt = update_opt(baseopt, sweep)
-            opt.name = "_".join([timestamp, config["name"], str(len(res))])
+            opt.name = "_".join([config["name"], str(len(res))])
             res.append(opt)
     return res
 
@@ -76,8 +77,12 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("config_path", type=Path, default="sweep.yaml")
     parser.add_argument("--exclude_nodes", nargs="+", default=[])
-    parser.add_argument("--logs_dir", type=Path, default=os.environ["PYRONAN_LOGS_DIR"])
-    parser.add_argument("--html_dir", type=Path, default=os.environ["PYRONAN_HTML_DIR"])
+    parser.add_argument(
+        "--logs_dir", type=Path, default=os.environ.get("PYRONAN_LOGS_DIR")
+    )
+    parser.add_argument(
+        "--html_dir", type=Path, default=os.environ.get("PYRONAN_HTML_DIR")
+    )
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=100)
     parser.add_argument("--h_vmem", type=int, default=200000)
@@ -95,11 +100,12 @@ def main():
     job_list = submit(client, config)
     while is_running(job_list):
         time.sleep(args.wait)
-        make_html(
+        res = make_html(
             config,
             sorted([jb["opt"] for jb in job_list], key=lambda x: x.name),
             args.html_dir,
         )
+        print(res, time.time())
 
 
 if __name__ == "__main__":

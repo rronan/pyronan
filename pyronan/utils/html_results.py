@@ -25,7 +25,7 @@ html_template = """
     {config}
     </p>
 
-    <b>Min loss on val: {global_min} ({global_min_name})</b>
+    <b>Min loss on val: {global_min} ({global_argmin})</b>
 
     {body}
 
@@ -41,6 +41,8 @@ block_template = """
     <img src="figures/{name}_loss.png" style="margin:1px; padding:1px;" width="512"> <img src="figures/{name}_lr.png" style="margin:1px; padding:1px;" width="512">
 
 """
+
+image_template = '<img src="{out_path}" style="margin:1px; padding:1px;" width="512">'
 
 
 def try_allnan(func, array):
@@ -75,9 +77,8 @@ def draw_curves(log_path, fig_path, key):
 
 
 def make_body_chunk(checkpoint, info, global_min, global_min_name, key, outdir):
-    name = Path(checkpoint)
     success, min_train, argmin_train, min_val, argmin_val = draw_curves(
-        checkpoint / "log.json", outdir / "figures" / name, key
+        checkpoint / "log.json", outdir / "figures" / checkpoint.name, key
     )
     if success:
         if min_val < global_min:
@@ -92,28 +93,27 @@ def make_body_chunk(checkpoint, info, global_min, global_min_name, key, outdir):
             argmin_val=argmin_val,
         )
         return (block, global_min, global_min_name)
+    return "", math.inf, "Null"
 
 
 def make_html(config, opt_list, outdir, key="loss"):
     with tempfile.TemporaryDirectory() as tempdir:
         body = ""
+        tempdir = Path(tempdir)
         global_min, global_argmin = math.inf, "Null"
         for opt in opt_list:
-            name = opt.checkpoint.name
-            body_chunk, global_min, global_min_name = make_body_chunk(
-                name, opt, global_min, global_argmin, key, tempdir
-            )
-            image_line = ""
-            for image in opt.checkpoint.files("*.png"):
-                out_path = f"figures/{name}_{image}"
-                image.copyfile(tempdir / out_path)
-                image_line += f'<img src="{out_path}" style="margin:1px; padding:1px;" width="512">'
-            body += body_chunk + "\n<p>" + image_line + "\n</p>"
+            if opt.checkpoint.exists():
+                body_chunk, global_min, global_argmin = make_body_chunk(
+                    opt.checkpoint, opt, global_min, global_argmin, key, tempdir
+                )
+                image_line = ""
+                for image in opt.checkpoint.files("*.png"):
+                    out_path = f"figures/{opt.checkpoint.name}_{image}"
+                    image.copyfile(tempdir / out_path)
+                    image_line += image_template(out_path=out_path)
+                body += body_chunk + "\n<p>" + image_line + "\n</p>"
         html = html_template.format(
-            config=config,
-            global_min=global_min,
-            global_min_name=global_min_name,
-            body=body,
+            config=config, global_min=global_min, global_argmin=global_argmin, body=body
         )
         with open(tempdir / "index.html", "w") as f:
             f.write(html)
