@@ -4,20 +4,23 @@ import time
 from copy import copy
 from pathlib import Path
 from pydoc import locate
+import os
 
 import yaml
 from dask.distributed import Client
 from dask_jobqueue import SGECluster
+from pyronan.utils.html_results import make_html
 
-# dask-submit <remote-client-address>:<port> gridsearch.py
+# dask-submit <remote-client-address>:<port> distribute.py
 
 
 def init_cluster(args):
     cluster = SGECluster(
         queue=args.queue,
         cores=1,
-        processes=1,
-        memory="16GB",
+        # processes=1,
+        local_directory=args.local_directory,
+        memory=f"{args.mem_req}GB",
         resource_spec=f"h_vmem={args.h_vmem},mem_req={args.mem_req}",
         interface="ib0",
     )
@@ -64,21 +67,19 @@ def submit(client, config):
 
 def is_running(job_list):
     for job in job_list:
-        if job["future"].status == "running":
+        if job["future"].status != "finished":
             return True
     return False
-
-
-def visualize(config, job_list):
-    pass  # TODO
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("config_path", type=Path, default="sweep.yaml")
     parser.add_argument("--exclude_nodes", nargs="+", default=[])
-    parser.add_argument("--queue", default="lowgpu.q,gaia.q,zeus.q,titan.q,chronos.q")
-    parser.add_argument("--mem_req", type=int, default=20)
+    parser.add_argument("--logs_dir", type=Path, default=os.environ["PYRONAN_LOGS_DIR"])
+    parser.add_argument("--html_dir", type=Path, default=os.environ["PYRONAN_HTML_DIR"])
+    parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
+    parser.add_argument("--mem_req", type=int, default=100)
     parser.add_argument("--h_vmem", type=int, default=200000)
     parser.add_argument("--jobs", type=int, default=None)
     parser.add_argument("--wait", type=int, default=60)
@@ -94,7 +95,11 @@ def main():
     job_list = submit(client, config)
     while is_running(job_list):
         time.sleep(args.wait)
-        visualize(config, job_list)
+        make_html(
+            config,
+            sorted([jb["opt"] for jb in job_list], key=lambda x: x.name),
+            args.html_dir,
+        )
 
 
 if __name__ == "__main__":

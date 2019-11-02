@@ -2,6 +2,8 @@ import argparse
 import json
 import math
 import os
+import tempfile
+import shutil
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -92,32 +94,31 @@ def make_body_chunk(checkpoint, info, global_min, global_min_name, key, outdir):
         return (block, global_min, global_min_name)
 
 
-def make_html(config, checkpoint_list, params_list, key="loss", outdir=None):
-    tempdir = None
-    body = ""
-    global_min = math.inf
-    global_min_name = "Null"
-    for checkpoint, params in zip(checkpoint_list, params_list):
-        name = checkpoint.name
-        body_chunk, global_min, global_min_name = make_body_chunk(
-            name, params, global_min, global_min_name, key, tempdir
-        )
-        image_line = ""
-        for image in checkpoint.files("*.png"):
-            out_path = f"figures/{name}_{image}"
-            image.copyfile(tempdir / out_path)
-            image_line += (
-                f'<img src="{out_path}" style="margin:1px; padding:1px;" width="512">'
+def make_html(config, opt_list, outdir, key="loss"):
+    with tempfile.TemporaryDirectory() as tempdir:
+        body = ""
+        global_min, global_argmin = math.inf, "Null"
+        for opt in opt_list:
+            name = opt.checkpoint.name
+            body_chunk, global_min, global_min_name = make_body_chunk(
+                name, opt, global_min, global_argmin, key, tempdir
             )
-        body += body_chunk + "\n<p>" + image_line + "\n</p>"
-    html = html_template.format(
-        config=config, global_min=global_min, global_min_name=global_min_name, body=body
-    )
-    with open(tempdir / "index.html", "w") as f:
-        f.write(html)
-    if outdir is None:
-        outdir = os.environ["PYRONAN_HTML_DIR"]
-    # TODO mv temp to outdir
+            image_line = ""
+            for image in opt.checkpoint.files("*.png"):
+                out_path = f"figures/{name}_{image}"
+                image.copyfile(tempdir / out_path)
+                image_line += f'<img src="{out_path}" style="margin:1px; padding:1px;" width="512">'
+            body += body_chunk + "\n<p>" + image_line + "\n</p>"
+        html = html_template.format(
+            config=config,
+            global_min=global_min,
+            global_min_name=global_min_name,
+            body=body,
+        )
+        with open(tempdir / "index.html", "w") as f:
+            f.write(html)
+        path = shutil.copytree(tempdir, outdir / config["name"])
+    return path
 
 
 def parse_args():
@@ -133,9 +134,8 @@ def parse_args():
 def main():
     args = parse_args()
     config = None
-    checkpoint_list = None
-    params_list = None
-    make_html(config, checkpoint_list, params_list, args.key, args.outdir)
+    opt_list = None
+    make_html(config, opt_list, args.key, args.outdir)
 
 
 if __name__ == "__main__":
