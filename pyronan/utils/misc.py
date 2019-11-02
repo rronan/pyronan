@@ -76,8 +76,8 @@ def append_timestamp(name):
     if re.search("[\d]{6}_[\d]{6}", name):
         append = ""
     else:
-        append = "_" + time.strftime("%y%m%d_%H%M%S")
-    return name + append
+        append = time.strftime("%y%m%d_%H%M%S") + "_"
+    return append + name
 
 
 def save_args(path, args, zf=None):

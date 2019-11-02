@@ -4,6 +4,7 @@ import math
 import os
 import tempfile
 import shutil
+import yaml
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -25,7 +26,7 @@ html_template = """
     {config}
     </p>
 
-    <b>Min loss on val: {global_min} ({global_argmin})</b>
+    <b>Min loss on val: {min_} ({argmin})</b>
 
     {body}
 
@@ -35,14 +36,14 @@ html_template = """
 block_template = """
 
     <hr>
-    <p>{name}: {info}</p>
+    <p>{name}: {opt}</p>
     <p>Min loss on train: {min_train} (epoch: {argmin_train})</p>
     <p>Min loss on val: {min_val} (epoch: {argmin_val})</p>
     <img src="figures/{name}_loss.png" style="margin:1px; padding:1px;" width="512"> <img src="figures/{name}_lr.png" style="margin:1px; padding:1px;" width="512">
 
 """
 
-image_template = '<img src="{out_path}" style="margin:1px; padding:1px;" width="512">'
+image_template = '<img src="{image_path}" style="margin:1px; padding:1px;" width="512">'
 
 
 def try_allnan(func, array):
@@ -76,23 +77,23 @@ def draw_curves(log_path, fig_path, key):
     )
 
 
-def make_body_chunk(checkpoint, info, global_min, global_min_name, key, outdir):
+def make_body_chunk(opt, min_, argmin, key, outdir):
     success, min_train, argmin_train, min_val, argmin_val = draw_curves(
-        checkpoint / "log.json", outdir / "figures" / checkpoint.name, key
+        opt.checkpoint / "log.json", outdir / "figures" / opt.checkpoint.name, key
     )
     if success:
-        if min_val < global_min:
-            global_min = min_val
-            global_min_name = checkpoint.name
+        if min_val < min_:
+            min_ = min_val
+            argmin = opt.checkpoint.name
         block = block_template.format(
-            name=checkpoint.name,
-            info=info,
+            name=opt.checkpoint.name,
+            opt=opt,
             min_train=min_train,
             argmin_train=argmin_train,
             min_val=min_val,
             argmin_val=argmin_val,
         )
-        return (block, global_min, global_min_name)
+        return (block, min_, argmin)
     return "", math.inf, "Null"
 
 
@@ -100,25 +101,28 @@ def make_html(config, opt_list, outdir, key="loss"):
     with tempfile.TemporaryDirectory() as tempdir:
         body = ""
         tempdir = Path(tempdir)
-        global_min, global_argmin = math.inf, "Null"
+        min_, argmin = math.inf, "Null"
         for opt in opt_list:
             if opt.checkpoint.exists():
-                body_chunk, global_min, global_argmin = make_body_chunk(
-                    opt.checkpoint, opt, global_min, global_argmin, key, tempdir
+                body_chunk, min_, argmin = make_body_chunk(
+                    opt, min_, argmin, key, tempdir
                 )
                 image_line = ""
                 for image in opt.checkpoint.files("*.png"):
-                    out_path = f"figures/{opt.checkpoint.name}_{image}"
-                    image.copyfile(tempdir / out_path)
-                    image_line += image_template(out_path=out_path)
+                    dest = f"figures/{opt.checkpoint.name}_{image}"
+                    shutil.copyfile(image, dest)
+                    image_line += image_template(image_path=dest)
                 body += body_chunk + "\n<p>" + image_line + "\n</p>"
         html = html_template.format(
-            config=config, global_min=global_min, global_argmin=global_argmin, body=body
+            config=yaml.dump(config, indent=4), min_=min_, argmin=argmin, body=body
         )
         with open(tempdir / "index.html", "w") as f:
             f.write(html)
-        path = shutil.copytree(tempdir, outdir / config["name"], dirs_exist_ok=True)
-    return path
+        if (outdir / config["name"]).exists():
+            shutil.rmtree(outdir / config["name"])
+        res = shutil.copytree(tempdir, outdir / config["name"])
+        os.chmod(res, 0o755)
+        return res
 
 
 def parse_args():
