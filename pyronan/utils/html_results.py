@@ -117,7 +117,7 @@ def make_html(config, opt_list, outdir, key="loss"):
         )
         with open(tempdir / "index.html", "w") as f:
             f.write(html)
-        path = shutil.copytree(tempdir, outdir / config["name"])
+        path = shutil.copytree(tempdir, outdir / config["name"], dirs_exist_ok=True)
     return path
 
 
