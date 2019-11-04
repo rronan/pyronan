@@ -15,31 +15,30 @@ Define ```MyModel``` as subclass of ```pyronan.model.Model```
 
 Define ```MyDataset``` as subclasses of ```pyronan.dataset.Dataset```
 
-Minimal script:
+Minimal working example:
 
 ```
 from argparse import ArgumentParser
 from pathlib import Path
 
-from pyronan.utils.train import checkpoint, make_loader, trainer
+from torch.utils.data import DataLoader
+
+from pyronan.utils.train import checkpoint, trainer
+from pyronan.utils.misc import append_timestamp
 
 parser = ArgumentParser()
 parser.add_argument("--checkpoint", type=Path, default="path to checkpoints")
 parser.add_argument("--bsz", type=int, default=16, help="batch size")
 parser.add_argument("--num_workers", type=int, default=8)
 parser.add_argument("--n_epochs", type=int, default=100)
-parser.add_argument("--save_best", action='store_true')
-parser.add_argument("--save_all", action="store_true")
-parser.add_argument("--name", default=None)
+parser.add_argument("--name", default='')
 args = parser.parse_args(argv)
 args.name = append_timestamp(args.name)
 args.checkpoint /= args.name
 
-
-dataset_path = "pyronan.examples.mnist.dataset"
 loader_dict = {
-    set_: make_loader(MyDataset, args, set_, args.bsz, args.num_workers, args.pin_memory)
-    for set_ in ["train", "val"]
+    'train': DataLoader(MyDataset_train, args.bsz, args.num_workers)
+    'val': DataLoader(MyDataset_val, args.bsz, args.num_workers)
 }
 model = MyModel()
 checkpoint_func = partial(checkpoint, model=model, args=args)
