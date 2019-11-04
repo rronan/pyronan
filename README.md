@@ -13,9 +13,9 @@ pip install -e pyronan
 
 Define ```MyModel``` as subclass of ```pyronan.model.Model```
 
-Define ```MyDataset``` as subclasses of ```pyronan.dataset.Dataset```
+Define ```MyDataset``` as subclass of ```pyronan.dataset.Dataset```
 
-Minimal working example:
+__Minimal working example__:
 
 ```
 from argparse import ArgumentParser
@@ -27,10 +27,12 @@ from pyronan.train import trainer
 from pyronan.train import parser as parser_train
 from pyronan.utils.misc import append_timestamp, checkpoint
 
+
 parser = ArgumentParser(parents=[parser_model, parser_train])
 parser.add_argument("--name", type=append_timestamp, default='')
 args = parser.parse_args(argv)
 args.checkpoint /= args.name
+
 
 loader_dict = {
     'train': DataLoader(MyDataset_train, args.bsz, args.num_workers)
@@ -38,6 +40,7 @@ loader_dict = {
 }
 model = MyModel()
 checkpoint_func = partial(checkpoint, model=model, args=args)
+
 trainer(model, loader_dict, args.n_epochs, checkpoint_func)
 ```
 
