@@ -1,23 +1,19 @@
-import re
-
 import numpy as np
 import torch
 import torch.utils.data
-from torch._six import container_abcs, int_classes, string_classes
 
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, args, set_):
         self.set_ = set_
-        self.count = args.count
+        self.item_list = args.item_list
+        self.getfunc_list = [getattr(self, "get_" + item) for item in args.item_list]
 
-    def make_data(self, input_prefix, set_):
-        self.data = ""
+    def make_data(self, set_, *args, **kwargs):
+        self.data = None
 
-    def count_data(self, c=-1):
-        self.n_videos, self.n_frames, *_ = self.data.shape
-        self.count = self.n_videos * self.n_frames
-        self.count = self.count if c < 0 else min(self.count, c)
+    def count_data(self, *args, **kwargs):
+        self.count = None
 
     def print_stats(self):
         d = {"input": self.data}
@@ -30,21 +26,15 @@ class Dataset(torch.utils.data.Dataset):
             print(f"{key} shape :", value.shape)
         print(f"n samples {self.set_}: {self.count}")
 
-    def get_input(self, video_idx, frame_idx):
-        pass
+    def get_input(self, index):
+        raise NotImplementedError
 
-    def get_target(self, video_idx, frame_idx):
-        pass
-
-    def getitem(self, video_idx, frame_idx):
-        input_ = self.get_input(video_idx, frame_idx)
-        target = self.get_target(video_idx, frame_idx)
-        return input_, target
+    def get_target(self, index):
+        raise NotImplementedError
 
     def __getitem__(self, index):
-        video_idx = index // self.n_frames
-        frame_idx = index % self.n_frames
-        return self.getitem(video_idx, frame_idx)
+        item_list = [f(index) for f in self.getfunc_list]
+        return tuple(item_list)
 
     def __len__(self):
         return self.count

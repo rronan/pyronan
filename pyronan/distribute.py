@@ -1,19 +1,18 @@
 import argparse
 import itertools
+import logging
+import os
 import time
 from copy import copy
 from pathlib import Path
 from pydoc import locate
-import os
-import logging
 
 import yaml
 from dask.distributed import Client
-
 from dask_jobqueue import SGECluster
+
 from pyronan.utils.html_results import make_html
 from pyronan.utils.misc import append_timestamp
-
 
 logging.basicConfig(level=logging.INFO)
 
@@ -58,7 +57,7 @@ def update_opt(opt, dict_):
     return opt_copy
 
 
-def make_args_list(config):
+def make_opt_list(config):
     res = []
     config["name"] = append_timestamp(config["name"])
     baseopt = update_opt(locate(config["parser"])([]), config["args"])
@@ -73,9 +72,13 @@ def make_args_list(config):
 def submit(cluster, config):
     client = Client(cluster)
     func = locate(config["function"])
-    args_list = make_args_list(config)
+
+    def func(opt):
+        return locate(config["function"], opt)
+
+    opt_list = make_opt_list(config)
     res = []
-    for opt in args_list:
+    for opt in opt_list:
         res.append({"future": client.submit(func, opt), "opt": opt})
     return res
 
