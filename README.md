@@ -19,21 +19,17 @@ Minimal working example:
 
 ```
 from argparse import ArgumentParser
-from pathlib import Path
 
 from torch.utils.data import DataLoader
 
-from pyronan.utils.misc import append_timestamp, checkpoint
+from pyronan.model import parser as parser_model
 from pyronan.train import trainer
+from pyronan.train import parser as parser_train
+from pyronan.utils.misc import append_timestamp, checkpoint
 
-parser = ArgumentParser()
-parser.add_argument("--checkpoint", type=Path, default="path to checkpoints")
-parser.add_argument("--bsz", type=int, default=16, help="batch size")
-parser.add_argument("--num_workers", type=int, default=8)
-parser.add_argument("--n_epochs", type=int, default=100)
-parser.add_argument("--name", default='')
+parser = ArgumentParser(parents=[parser_model, parser_train])
+parser.add_argument("--name", type=append_timestamp, default='')
 args = parser.parse_args(argv)
-args.name = append_timestamp(args.name)
 args.checkpoint /= args.name
 
 loader_dict = {
