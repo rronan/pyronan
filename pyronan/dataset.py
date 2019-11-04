@@ -1,6 +1,22 @@
+from argparse import ArgumentParser
+
 import numpy as np
 import torch
 import torch.utils.data
+from path import Path
+
+from pyronan.utils.misc import parse_slice
+
+parser = ArgumentParser(add_help=False)
+parser.add_argument("--frame_prefix", type=Path, default=None)
+parser.add_argument("--input_prefix", type=Path, default=None)
+parser.add_argument("--item_list", nargs="+", default=[])
+parser.add_argument("--hw", type=int, default=128)
+parser.add_argument("--nc_in", type=int, default=None)
+parser.add_argument("--nc_out", type=int, default=None)
+parser.add_argument("--normalize", action="store_true")
+parser.add_argument("--slice", type=parse_slice, default=slice(None))
+parser.add_argument("--clip", type=float, default=10)
 
 
 class Dataset(torch.utils.data.Dataset):
