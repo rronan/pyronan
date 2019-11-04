@@ -22,8 +22,6 @@ parser.add_argument("--save_all", action="store_true")
 parser.add_argument("--save_last", action="store_true")
 parser.add_argument("--subcheck", type=float, default=None)
 
-parser.add_argument("--name", type=append_timestamp, default=strftime("%y%m%d_%H%M%S"))
-
 
 def make_model(model, args, load=None, gpu=False, data_parallel=False):
     model = locate(model)(args)
