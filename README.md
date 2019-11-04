@@ -15,7 +15,7 @@ Define ```MyModel``` as subclass of ```pyronan.model.Model```
 
 Define ```MyDataset``` as subclasses of ```pyronan.dataset.Dataset```
 
-__Minimal working example:
+__Minimal working example__:
 
 ```
 from argparse import ArgumentParser
