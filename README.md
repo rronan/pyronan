@@ -13,7 +13,7 @@ pip install -e pyronan
 
 Define ```MyModel``` as subclass of ```pyronan.model.Model```
 
-Define ```MyDataset``` as subclasses of ```pyronan.dataset.Dataset```
+Define ```MyDataset``` as subclass of ```pyronan.dataset.Dataset```
 
 __Minimal working example__:
 
