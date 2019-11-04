@@ -1,4 +1,3 @@
-path.py
 tqdm
 Pillow
 opencv-python
