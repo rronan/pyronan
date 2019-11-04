@@ -1,24 +1,24 @@
+from argparse import ArgumentParser
 from collections import OrderedDict
+
 import torch
 import torch.optim as optim
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torchviz import make_dot, make_dot_from_trace
+
+parser = ArgumentParser(add_help=False)
+parser.add_argument("--grad_clip", type=float, default=None)
+parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
+parser.add_argument("--lr_decay", type=float, default=0.1)
+parser.add_argument("--lr_patience", type=int, default=10)
+parser.add_argument("--optimizer", default="Adam")
+parser.add_argument("--weight_decay", type=float, default=0)
 
 
 class dummy_scheduler:
     def step(*args, **kwargs):
         return None
-
-
-class default_args_optim:
-    optimizer = "Adam"
-    lr = 0.001
-    lr_decay = 0.1
-    lr_patience = 10
-    weight_decay = 0
-    grad_clip = None
 
 
 class Model(object):
@@ -33,10 +33,7 @@ class Model(object):
         else:
             self.set_optim(args_optim)
 
-    def set_optim(self, args_optim=None):
-        if args_optim is None:
-            print("args_optim set to default", default_args_optim)
-            args_optim = default_args_optim
+    def set_optim(self, args_optim=parser.parse_args()):
         self.grad_clip = args_optim.grad_clip
         kwargs = {}
         if args_optim.lr is not None:

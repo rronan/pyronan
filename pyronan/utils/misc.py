@@ -5,6 +5,7 @@ import re
 import time
 from copy import copy
 from functools import wraps
+from pathlib import Path
 
 import torch
 
@@ -95,3 +96,45 @@ def save_args(path, args, zf=None):
             str(path).replace("/", "\\"),
             json.dumps(vars(args_copy), indent=4, sort_keys=True),
         )
+
+
+def checkpoint(epoch, log, model=None, args=None, path=None):
+    if path is None:
+        path = Path(args.checkpoint)
+    path.mkdir_p()
+    if args is not None:
+        save_args(path / "args.json", args)
+    with open(path / "log.json", "w") as f:
+        json.dump(log, f, indent=4)
+    if getattr(args, "save_all", False):
+        model.save(path, epoch)
+    if getattr(args, "save_last", False):
+        model.save(path, "last")
+    if "val_loss" in log[-1]:
+        if log[-1]["val_loss"] == min([x["val_loss"] for x in log]):
+            model.save(path, "best")
+
+
+def load_from_keras(self, h5_path):
+    import h5py
+    import torch.nn as nn
+
+    print("loading weights from %s" % h5_path)
+    f = h5py.File(h5_path)
+    k = 1
+    numel = 0
+    for m in self.modules():
+        if isinstance(m, nn.Conv2d):
+            w = f["model_weights"]["conv2d_%d" % k]["conv2d_%d" % k]
+            m.weight.data.copy_(
+                torch.FloatTensor(w["kernel:0"].value).permute(3, 2, 0, 1)
+            )
+            m.bias.data.copy_(torch.FloatTensor(w["bias:0"].value))
+            numel += m.weight.data.numel()
+            numel += m.bias.data.numel()
+            k += 1
+    try:
+        w = f["model_weights"]["conv2d_%d" % k]["conv2d_%d" % k]["kernel:0"]
+        print("test failed: ", w.value)
+    except Exception:
+        print("success, number of parameters copied: %d" % numel)

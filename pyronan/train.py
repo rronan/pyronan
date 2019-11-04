@@ -1,13 +1,28 @@
 import math
-import json
 import time
+from argparse import ArgumentParser
 from pydoc import locate
+from time import strftime
 
 from path import Path
-from tqdm import tqdm
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from libronan.python.utils import save_args
+from pyronan.utils.misc import append_timestamp
+
+parser = ArgumentParser(add_help=False)
+parser.add_argument("--bsz", type=int, help="batch size")
+parser.add_argument("--checkpoint", type=Path)
+parser.add_argument("--data_parallel", action="store_true")
+parser.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
+parser.add_argument("--num_workers", type=int, default=20)
+parser.add_argument("--n_epochs", type=int, default=200)
+parser.add_argument("--pin_memory", action="store_true")
+parser.add_argument("--save_all", action="store_true")
+parser.add_argument("--save_last", action="store_true")
+parser.add_argument("--subcheck", type=float, default=None)
+
+parser.add_argument("--name", type=append_timestamp, default=strftime("%y%m%d_%H%M%S"))
 
 
 def make_model(model, args, load=None, gpu=False, data_parallel=False):
@@ -79,45 +94,3 @@ def trainer(model, loader_dict, n_epochs, checkpoint_func, subcheck=None, verbos
         model.scheduler.step(log[-1]["val_loss"])
         if model.get_lr() < 5e-8 or math.isnan(log[-1]["train_loss"]):
             break
-
-
-def checkpoint(epoch, log, model=None, args=None, path=None):
-    if path is None:
-        path = Path(args.checkpoint)
-    path.mkdir_p()
-    if args is not None:
-        save_args(path / "args.json", args)
-    with open(path / "log.json", "w") as f:
-        json.dump(log, f, indent=4)
-    if args.save_all:
-        model.save(path, epoch)
-    if args.save_last:
-        model.save(path, "last")
-    if "val_loss" in log[-1]:
-        if log[-1]["val_loss"] == min([x["val_loss"] for x in log]):
-            model.save(path, "best")
-
-
-def load_from_keras(self, h5_path):
-    import h5py
-    import torch.nn as nn
-
-    print("loading weights from %s" % h5_path)
-    f = h5py.File(h5_path)
-    k = 1
-    numel = 0
-    for m in self.modules():
-        if isinstance(m, nn.Conv2d):
-            w = f["model_weights"]["conv2d_%d" % k]["conv2d_%d" % k]
-            m.weight.data.copy_(
-                torch.FloatTensor(w["kernel:0"].value).permute(3, 2, 0, 1)
-            )
-            m.bias.data.copy_(torch.FloatTensor(w["bias:0"].value))
-            numel += m.weight.data.numel()
-            numel += m.bias.data.numel()
-            k += 1
-    try:
-        w = f["model_weights"]["conv2d_%d" % k]["conv2d_%d" % k]["kernel:0"]
-        print("test failed: ", w.value)
-    except Exception:
-        print("success, number of parameters copied: %d" % numel)

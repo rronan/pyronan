@@ -23,8 +23,8 @@ from pathlib import Path
 
 from torch.utils.data import DataLoader
 
-from pyronan.utils.train import checkpoint, trainer
-from pyronan.utils.misc import append_timestamp
+from pyronan.utils.misc import append_timestamp, checkpoint
+from pyronan.train import trainer
 
 parser = ArgumentParser()
 parser.add_argument("--checkpoint", type=Path, default="path to checkpoints")
