@@ -101,7 +101,7 @@ def save_args(path, args, zf=None):
 def checkpoint(epoch, log, model=None, args=None, path=None):
     if path is None:
         path = Path(args.checkpoint)
-    path.mkdir_p()
+    path.mkdir(exist_ok=True)
     if args is not None:
         save_args(path / "args.json", args)
     with open(path / "log.json", "w") as f:
