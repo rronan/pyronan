@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 
 
 def init_cluster(name, args):
-    resource_spec = "h_vmem={}M,mem_req={}M".format(args.h_vmem, args.mem_req)
+    resource_spec = "h_vmem={}G,mem_req={}G".format(args.h_vmem, args.mem_req)
     env_extra = [
         "#$ -e {}".format(args.log_dir or "/dev/null"),
         "#$ -o {}".format(args.log_dir or "/dev/null"),
@@ -71,7 +71,6 @@ def make_opt_list(config):
 
 def submit(cluster, config):
     client = Client(cluster)
-    func = locate(config["function"])
 
     def func(opt):
         return locate(config["function"], opt)
@@ -102,7 +101,7 @@ def parse_args():
     )
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=32)
-    parser.add_argument("--h_vmem", type=int, default=1e6)
+    parser.add_argument("--h_vmem", type=int, default=200000)
     parser.add_argument("--to_source", default="~/.zshrc")
     parser.add_argument("--ncpus", type=int, default=4)
     parser.add_argument("--ngpus", type=int, default=1)

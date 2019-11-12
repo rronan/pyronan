@@ -2,7 +2,6 @@ import math
 import time
 from argparse import ArgumentParser
 from pydoc import locate
-from time import strftime
 
 from path import Path
 from torch.utils.data import DataLoader
@@ -10,17 +9,19 @@ from tqdm import tqdm
 
 from pyronan.utils.misc import append_timestamp
 
-parser = ArgumentParser(add_help=False)
-parser.add_argument("--bsz", type=int, help="batch size")
-parser.add_argument("--checkpoint", type=Path)
-parser.add_argument("--data_parallel", action="store_true")
-parser.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
-parser.add_argument("--num_workers", type=int, default=20)
-parser.add_argument("--n_epochs", type=int, default=200)
-parser.add_argument("--pin_memory", action="store_true")
-parser.add_argument("--save_all", action="store_true")
-parser.add_argument("--save_last", action="store_true")
-parser.add_argument("--subcheck", type=float, default=None)
+parser_train = ArgumentParser(add_help=False)
+parser_train.add_argument("--bsz", type=int, help="batch size")
+parser_train.add_argument("--checkpoint", type=Path)
+parser_train.add_argument("--seed", type=int, default=0)
+parser_train.add_argument("--name", type=append_timestamp, default="")
+parser_train.add_argument("--data_parallel", action="store_true")
+parser_train.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
+parser_train.add_argument("--num_workers", type=int, default=20)
+parser_train.add_argument("--n_epochs", type=int, default=200)
+parser_train.add_argument("--pin_memory", action="store_true")
+parser_train.add_argument("--save_all", action="store_true")
+parser_train.add_argument("--save_last", action="store_true")
+parser_train.add_argument("--subcheck", type=float, default=None)
 
 
 def make_model(model, args, load=None, gpu=False, data_parallel=False):

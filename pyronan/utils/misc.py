@@ -7,8 +7,6 @@ from copy import copy
 from functools import wraps
 from pathlib import Path
 
-import torch
-
 
 def mp_cache(mp_dict):
     def decorate(func):
@@ -29,6 +27,8 @@ def mp_cache(mp_dict):
 
 
 def set_seed(seed, gpu):
+    import torch
+
     random.seed(seed)
     torch.manual_seed(seed)
     if gpu:
@@ -116,6 +116,7 @@ def checkpoint(epoch, log, model=None, args=None, path=None):
 
 
 def load_from_keras(self, h5_path):
+    import torch
     import h5py
     import torch.nn as nn
 

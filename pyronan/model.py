@@ -7,13 +7,13 @@ from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-parser = ArgumentParser(add_help=False)
-parser.add_argument("--grad_clip", type=float, default=None)
-parser.add_argument("--lr", type=float, default=0.001, help="Learning rate")
-parser.add_argument("--lr_decay", type=float, default=0.1)
-parser.add_argument("--lr_patience", type=int, default=10)
-parser.add_argument("--optimizer", default="Adam")
-parser.add_argument("--weight_decay", type=float, default=0)
+parser_optim = ArgumentParser(add_help=False)
+parser_optim.add_argument("--grad_clip", type=float, default=None)
+parser_optim.add_argument("--lr", type=float, default=0.001, help="Learning rate")
+parser_optim.add_argument("--lr_decay", type=float, default=0.1)
+parser_optim.add_argument("--lr_patience", type=int, default=10)
+parser_optim.add_argument("--optimizer", default="Adam")
+parser_optim.add_argument("--weight_decay", type=float, default=0)
 
 
 class dummy_scheduler:
@@ -24,6 +24,8 @@ class dummy_scheduler:
 class Model(object):
     def __init__(self, core_module=None, args_optim=None):
         super().__init__()
+        if args_optim is None:
+            args_optim = parser_optim()
         self.device = "cpu"
         self.is_data_parallel = False
         self.core_module = core_module
@@ -33,7 +35,7 @@ class Model(object):
         else:
             self.set_optim(args_optim)
 
-    def set_optim(self, args_optim=parser.parse_args()):
+    def set_optim(self, args_optim):
         self.grad_clip = args_optim.grad_clip
         kwargs = {}
         if args_optim.lr is not None:
