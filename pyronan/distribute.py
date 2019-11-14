@@ -19,14 +19,23 @@ logging.basicConfig(level=logging.INFO)
 
 def init_cluster(name, args):
     resource_spec = "h_vmem={}G,mem_req={}G".format(args.h_vmem, args.mem_req)
+    exclude_nodes = "&".join(["!" + x for x in args.exclude_nodes])
+    if len(exclude_nodes) > 0:
+        exclude_nodes = "#$ -l h=" + exclude_nodes
     env_extra = [
         "#$ -e {}".format(args.log_dir or "/dev/null"),
         "#$ -o {}".format(args.log_dir or "/dev/null"),
         "#$ -pe serial {}".format(args.ngpus if args.ngpus > 0 else args.ncpus),
+        exclude_nodes,
         "source " + args.to_source,
         "export LANG=en_US.UTF-8",
         "export LC_ALL=en_US.UTF-8",
+        "export MKL_NUM_THREADS=1",
+        "export NUMEXPR_NUM_THREADS=1",
+        "export OMP_NUM_THREADS=1",
     ]
+    for var in args.export_var:
+        env_extra.append(f'export {var}="{os.environ[var]}"')
     cluster = SGECluster(
         queue=args.queue,
         resource_spec=resource_spec,
@@ -102,7 +111,10 @@ def parse_args():
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=32)
     parser.add_argument("--h_vmem", type=int, default=200000)
-    parser.add_argument("--to_source", default="~/.zshrc")
+    parser.add_argument("--to_source", default="")
+    parser.add_argument(
+        "--export_var", nargs="*", default=["PYTHONPATH", "TORCH_MODEL_ZOO"]
+    )
     parser.add_argument("--ncpus", type=int, default=4)
     parser.add_argument("--ngpus", type=int, default=1)
     parser.add_argument("--jobs", type=int, default=1)
