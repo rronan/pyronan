@@ -27,7 +27,7 @@ def init_cluster(name, args):
         "#$ -o {}".format(args.log_dir or "/dev/null"),
         "#$ -pe serial {}".format(args.ngpus if args.ngpus > 0 else args.ncpus),
         exclude_nodes,
-        "source " + args.to_source,
+        "source " + args.to_source if args.to_source is not None else "",
         "export LANG=en_US.UTF-8",
         "export LC_ALL=en_US.UTF-8",
         "export MKL_NUM_THREADS=1",
@@ -41,11 +41,12 @@ def init_cluster(name, args):
         resource_spec=resource_spec,
         name=name,
         cores=args.ncpus,
-        memory="{}m".format(args.mem_req),
+        memory="{}G".format(args.mem_req),
         processes=1,
         interface="ib0",
         local_directory=args.log_dir,
         env_extra=env_extra,
+        spill_dir=args.spill_dir,
     )
     cluster.start_workers(args.jobs)
     return cluster
@@ -56,6 +57,7 @@ def make_config(config_path):
         config = yaml.safe_load(f)
     if "name" not in config:
         config["name"] = config_path.stem
+    config["name"] = append_timestamp(config["name"], end=True)
     return config
 
 
@@ -68,7 +70,6 @@ def update_opt(opt, dict_):
 
 def make_opt_list(config):
     res = []
-    config["name"] = append_timestamp(config["name"])
     baseopt = update_opt(locate(config["parser"])([]), config["args"])
     for sweep in config["grids"]:
         for values in itertools.product(*sweep.values()):
@@ -111,7 +112,7 @@ def parse_args():
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=32)
     parser.add_argument("--h_vmem", type=int, default=200000)
-    parser.add_argument("--to_source", default="")
+    parser.add_argument("--to_source", default=None)
     parser.add_argument(
         "--export_var", nargs="*", default=["PYTHONPATH", "TORCH_MODEL_ZOO"]
     )
@@ -119,6 +120,9 @@ def parse_args():
     parser.add_argument("--ngpus", type=int, default=1)
     parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument("--wait", type=int, default=60)
+    parser.add_argument(
+        "--spill_dir", type=Path, default="/sequoia/data2/rriochet/dask", help="scratch"
+    )
     args = parser.parse_args()
     return args
 
@@ -127,9 +131,12 @@ def main():
     args = parse_args()
     logging.info(args)
     config = make_config(args.config_path)
+    print(config["name"])
     cluster = init_cluster(config["name"], args)
     job_list = submit(cluster, config)
     logging.info(cluster.job_script())
+    print(f'cat {args.log_dir}/{config["name"]}.o*')
+    print(f'cat {args.log_dir}/{config["name"]}.e*')
     while is_running(job_list):
         time.sleep(args.wait)
         make_html(

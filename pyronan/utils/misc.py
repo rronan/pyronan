@@ -1,11 +1,22 @@
 import argparse
 import json
+import os
 import random
 import re
 import time
 from copy import copy
 from functools import wraps
 from pathlib import Path
+
+from tqdm import tqdm
+
+
+def tqdm_(x, *args, **kwargs):
+    if type(x) is int:
+        x = range(x)
+    if os.environ.get("DISABLE_TQDM"):
+        return x
+    return tqdm(x, *args, **kwargs, dynamic_ncols=True)
 
 
 def mp_cache(mp_dict):
@@ -73,17 +84,21 @@ class to_namespace:
         return str(vars(self))
 
 
-def append_timestamp(name):
+def append_timestamp(name, end=False):
     if re.search("[\d]{6}_[\d]{6}", name):
-        append = ""
+        return name
     else:
-        append = time.strftime("%y%m%d_%H%M%S") + "_"
-    return append + name
+        if end:
+            return name + "_" + time.strftime("%y%m%d_%H%M%S")
+        else:
+            return time.strftime("%y%m%d_%H%M%S") + "_" + name
 
 
 def save_args(path, args, zf=None):
     args_copy = copy(args)
     for k, v in vars(args_copy).items():
+        if isinstance(v, Path):
+            vars(args_copy)[k] = str(v)
         if type(v) is slice:
             vars(args_copy)[k] = write_slice(v)
         elif type(v) is argparse.Namespace:
