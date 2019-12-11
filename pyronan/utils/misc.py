@@ -19,10 +19,21 @@ def tqdm_(x, *args, **kwargs):
     return tqdm(x, *args, **kwargs, dynamic_ncols=True)
 
 
+def init_shared_dict():
+    if os.environ.get("DISABLE_MP_CACHE"):
+        print("mp_cache() is disabled")
+        return None
+    from multiprocessing import Manager
+
+    return Manager().dict()
+
+
 def mp_cache(mp_dict):
     def decorate(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
+            if mp_dict is None:
+                return func(*args, **kwargs)
             k = func.__name__
             k += "_".join(map(str, args))
             k += "_".join(map(lambda k, v: f"{k}_{v}", kwargs.items()))

@@ -3,6 +3,7 @@ import itertools
 import logging
 import os
 import time
+from collections import OrderedDict
 from copy import copy
 from pathlib import Path
 from pydoc import locate
@@ -12,7 +13,7 @@ from dask.distributed import Client
 from dask_jobqueue import SGECluster
 
 from pyronan.utils.html_results import make_html
-from pyronan.utils.misc import append_timestamp
+from pyronan.utils.misc import append_timestamp, to_namespace
 
 logging.basicConfig(level=logging.INFO)
 
@@ -33,12 +34,14 @@ def init_cluster(name, args):
         "export MKL_NUM_THREADS=1",
         "export NUMEXPR_NUM_THREADS=1",
         "export OMP_NUM_THREADS=1",
+        "export DISABLE_MP_CACHE=1",
     ]
     for var in args.export_var:
         env_extra.append(f'export {var}="{os.environ[var]}"')
     cluster = SGECluster(
         queue=args.queue,
         resource_spec=resource_spec,
+        walltime="720:00:00",
         name=name,
         cores=args.ncpus,
         memory="{}G".format(args.mem_req),
@@ -47,8 +50,9 @@ def init_cluster(name, args):
         local_directory=args.log_dir,
         env_extra=env_extra,
         spill_dir=args.spill_dir,
+        extra=["--no-nanny"],
     )
-    cluster.start_workers(args.jobs)
+    cluster.scale(args.jobs)
     return cluster
 
 
@@ -62,32 +66,37 @@ def make_config(config_path):
 
 
 def update_opt(opt, dict_):
-    opt_copy = copy(opt)
+    opt_copy = vars(copy(opt))
     for k, v in dict_.items():
-        vars(opt_copy)[k] = v
-    return opt_copy
+        opt_copy[k] = v
+    return to_namespace(opt_copy)
 
 
-def make_opt_list(config):
+def make_opt_list(config, merge_names):
     res = []
     baseopt = update_opt(locate(config["parser"])([]), config["args"])
-    for sweep in config["grids"]:
-        for values in itertools.product(*sweep.values()):
-            opt = update_opt(baseopt, sweep)
-            opt.name = "_".join([config["name"], str(len(res))])
+    for grid in config["grids"]:
+        grid = OrderedDict(grid)
+        for values in itertools.product(*grid.values()):
+            opt = update_opt(baseopt, dict(zip(grid.keys(), values)))
+            if merge_names:
+                opt.name = config["name"]
+            else:
+                opt.name = "_".join([config["name"], str(len(res))])
             res.append(opt)
     return res
 
 
-def submit(cluster, config):
+def submit(cluster, config, merge_names):
     client = Client(cluster)
 
     def func(opt):
-        return locate(config["function"], opt)
+        return locate(config["function"])(opt)
 
-    opt_list = make_opt_list(config)
+    opt_list = make_opt_list(config, merge_names)
     res = []
     for opt in opt_list:
+        print(opt)
         res.append({"future": client.submit(func, opt), "opt": opt})
     return res
 
@@ -123,6 +132,8 @@ def parse_args():
     parser.add_argument(
         "--spill_dir", type=Path, default="/sequoia/data2/rriochet/dask", help="scratch"
     )
+    parser.add_argument("--make_html", action="store_true")
+    parser.add_argument("--merge_names", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -133,17 +144,18 @@ def main():
     config = make_config(args.config_path)
     print(config["name"])
     cluster = init_cluster(config["name"], args)
-    job_list = submit(cluster, config)
+    job_list = submit(cluster, config, args.merge_names)
     logging.info(cluster.job_script())
     print(f'cat {args.log_dir}/{config["name"]}.o*')
     print(f'cat {args.log_dir}/{config["name"]}.e*')
     while is_running(job_list):
         time.sleep(args.wait)
-        make_html(
-            config,
-            sorted([jb["opt"] for jb in job_list], key=lambda x: x.name),
-            args.html_dir / "results",
-        )
+        if args.make_html:
+            make_html(
+                config,
+                sorted([jb["opt"] for jb in job_list], key=lambda x: x.name),
+                args.html_dir / "results",
+            )
 
 
 if __name__ == "__main__":
