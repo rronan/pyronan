@@ -2,13 +2,13 @@ import argparse
 import json
 import math
 import os
-import tempfile
 import shutil
-import yaml
+import tempfile
 
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+import yaml
 from path import Path
 
 matplotlib.use("Agg")
@@ -78,6 +78,7 @@ def draw_curves(log_path, fig_path, key):
 
 
 def make_body_chunk(opt, min_, argmin, key, outdir):
+    (outdir / "figures").mkdir_p()
     success, min_train, argmin_train, min_val, argmin_val = draw_curves(
         opt.checkpoint / "log.json", outdir / "figures" / opt.checkpoint.name, key
     )

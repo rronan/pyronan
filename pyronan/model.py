@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from collections import OrderedDict
 
 import torch
 import torch.optim as optim
@@ -22,14 +21,14 @@ class dummy_scheduler:
 
 
 class Model(object):
-    def __init__(self, core_module=None, args_optim=None):
+    def __init__(self, nn_module=None, args_optim=None):
         super().__init__()
         if args_optim is None:
-            args_optim = parser_optim()
+            args_optim = parser_optim.parse_args()
         self.device = "cpu"
         self.is_data_parallel = False
-        self.core_module = core_module
-        if core_module is None:
+        self.nn_module = nn_module
+        if nn_module is None:
             self.optimizer = None
             self.scheduler = dummy_scheduler
         else:
@@ -43,7 +42,7 @@ class Model(object):
         if args_optim.weight_decay is not None:
             kwargs["weight_decay"] = args_optim.weight_decay
         self.optimizer = getattr(optim, args_optim.optimizer)(
-            self.core_module.parameters(), **kwargs
+            self.nn_module.parameters(), **kwargs
         )
         self.scheduler = ReduceLROnPlateau(
             self.optimizer,
@@ -54,15 +53,15 @@ class Model(object):
         )
 
     def update(self, loss):
-        self.core_module.zero_grad()
+        self.nn_module.zero_grad()
         loss.backward()
         if self.grad_clip is not None:
-            clip_grad_norm_(self.core_module.parameters(), self.grad_clip)
+            clip_grad_norm_(self.nn_module.parameters(), self.grad_clip)
         self.optimizer.step()
 
     def step(self, batch, set_):
         x, y = batch[0].to(self.device), batch[1].to(self.device)
-        pred = self.core_module(x)
+        pred = self.nn_module(x)
         loss = self.loss.forward(pred, y)
         if set_ == "train":
             self.update(loss)
@@ -71,34 +70,27 @@ class Model(object):
     def load(self, path):
         print(f"loading {path}")
         state_dict = torch.load(path, map_location=lambda storage, loc: storage)
-        try:
-            self.core_module.load_state_dict(state_dict)
-        except RuntimeError as e:
-            print(e)
-            state_dict = OrderedDict(
-                {k.replace("module.", "", 1): v for k, v in state_dict.items()}
-            )
-            self.core_module.load_state_dict(state_dict)
+        self.nn_module.load_state_dict(state_dict)
 
     def save(self, path, epoch):
         with open(path / f"{self.__class__.__name__}.txt", "w") as f:
             f.write(str(self))
         if self.is_data_parallel:
-            state_dict = self.core_module.module.state_dict()
+            state_dict = self.nn_module.module.state_dict()
         else:
-            state_dict = self.core_module.state_dict()
+            state_dict = self.nn_module.state_dict()
         torch.save(state_dict, path / f"weights_{epoch}.pth")
 
     def to_device(self, batch):
         return [b.to(self.device) for b in batch]
 
     def gpu(self):
-        self.core_module.cuda()
-        self.core_module.device = "cuda"
+        self.nn_module.cuda()
+        self.nn_module.device = "cuda"
         self.device = "cuda"
 
     def data_parallel(self):
-        self.core_module = nn.DataParallel(self.core_module)
+        self.nn_module = nn.DataParallel(self.nn_module)
         self.is_data_parallel = True
 
     def get_lr(self):
@@ -108,7 +100,13 @@ class Model(object):
             return 0
 
     def get_num_parameters(self):
-        return sum([m.numel() for m in self.core_module.parameters()])
+        return sum([m.numel() for m in self.nn_module.parameters()])
 
     def __call__(self, *args, **kwargs):
-        return self.core_module.forward(*args, **kwargs)
+        return self.nn_module.forward(*args, **kwargs)
+
+    def requires_grad_(self, v):
+        if self.is_data_parallel:
+            self.nn_module.module.requires_grad_(v)
+        else:
+            self.nn_module.requires_grad_(v)

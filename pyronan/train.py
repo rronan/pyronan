@@ -60,6 +60,7 @@ def process_batch(model, batch, loss, set_, j):
 
 
 def process_epoch(model, set_, loader, log, i, n, callback=None, verbose=True):
+    model.requires_grad_(set_ == "train")
     loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
     for j, batch in enumerate(pbar):
