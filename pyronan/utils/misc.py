@@ -1,14 +1,33 @@
 import argparse
 import json
 import os
+import pathlib
 import random
 import re
 import time
 from copy import copy
 from functools import wraps
-from pathlib import Path
 
+import path as pathpy
 from tqdm import tqdm
+
+
+def obj_nan(x):
+    x_flat = x.contiguous().view(x.size(0), x.size(1), -1)
+    isnan = (x_flat != x_flat).any(-1)
+    for _ in range(len(x.shape) - len(isnan.shape)):
+        isnan = isnan.unsqueeze(-1)
+    isnan = isnan.expand(x.shape)
+    return isnan
+
+
+def fillnan(tensor):
+    return tensor.masked_fill(obj_nan(tensor), 0)
+
+
+def chunks(l, n):
+    for i in range(0, len(l), n):
+        yield l[i : i + n]
 
 
 def tqdm_(x, *args, **kwargs):
@@ -105,15 +124,21 @@ def append_timestamp(name, end=False):
             return time.strftime("%y%m%d_%H%M%S") + "_" + name
 
 
+def tostring(v):
+    if isinstance(v, pathlib.PosixPath):
+        return str(v)
+    if type(v) is slice:
+        return write_slice(v)
+    elif type(v) is argparse.Namespace:
+        return write_namespace(v)
+
+
 def save_args(path, args, zf=None):
     args_copy = copy(args)
     for k, v in vars(args_copy).items():
-        if isinstance(v, Path):
-            vars(args_copy)[k] = str(v)
-        if type(v) is slice:
-            vars(args_copy)[k] = write_slice(v)
-        elif type(v) is argparse.Namespace:
-            vars(args_copy)[k] = write_namespace(v)
+        if type(v) is list:
+            vars(args_copy)[k] = [tostring(w) for w in v]
+        vars(args_copy)[k] = tostring(v)
     if zf is None:
         with open(path, "w") as f:
             json.dump(vars(args_copy), f, indent=4, sort_keys=True)
@@ -126,7 +151,7 @@ def save_args(path, args, zf=None):
 
 def checkpoint(epoch, log, model=None, args=None, path=None):
     if path is None:
-        path = Path(args.checkpoint)
+        path = pathlib.Path(args.checkpoint)
     path.mkdir(exist_ok=True)
     if args is not None:
         save_args(path / "args.json", args)

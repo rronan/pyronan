@@ -40,7 +40,7 @@ def make_loader(dataset, args, set_, bsz, num_workers, pin_memory, shuffle=True)
     dataset = locate(dataset)(args, set_)
     loader = DataLoader(
         dataset,
-        bsz,
+        batch_size=bsz,
         num_workers=num_workers,
         shuffle=shuffle,
         drop_last=True,
@@ -60,7 +60,7 @@ def process_batch(model, batch, loss, set_, j):
 
 
 def process_epoch(model, set_, loader, log, i, n, callback=None, verbose=True):
-    model.requires_grad_(set_ == "train")
+    # model.requires_grad_(set_ == "train")
     loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
     for j, batch in enumerate(pbar):

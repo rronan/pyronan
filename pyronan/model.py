@@ -60,9 +60,9 @@ class Model(object):
         self.optimizer.step()
 
     def step(self, batch, set_):
-        x, y = batch[0].to(self.device), batch[1].to(self.device)
-        pred = self.nn_module(x)
-        loss = self.loss.forward(pred, y)
+        self.x, self.y = batch[0].to(self.device), batch[1].to(self.device)
+        self.pred = self.nn_module(self.x)
+        loss = self.loss.forward(self.pred, self.y)
         if set_ == "train":
             self.update(loss)
         return {"loss": loss.data.item()}
