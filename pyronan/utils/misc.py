@@ -131,6 +131,7 @@ def tostring(v):
         return write_slice(v)
     elif type(v) is argparse.Namespace:
         return write_namespace(v)
+    return v
 
 
 def save_args(path, args, zf=None):
@@ -138,7 +139,8 @@ def save_args(path, args, zf=None):
     for k, v in vars(args_copy).items():
         if type(v) is list:
             vars(args_copy)[k] = [tostring(w) for w in v]
-        vars(args_copy)[k] = tostring(v)
+        else:
+            vars(args_copy)[k] = tostring(v)
     if zf is None:
         with open(path, "w") as f:
             json.dump(vars(args_copy), f, indent=4, sort_keys=True)

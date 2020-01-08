@@ -82,7 +82,15 @@ class Model(object):
         torch.save(state_dict, path / f"weights_{epoch}.pth")
 
     def to_device(self, batch):
-        return [b.to(self.device) for b in batch]
+        if type(batch) is list:
+            return [b.to(self.device) for b in batch]
+        if type(batch) is dict:
+            return {k: v.to(self.device) for k, v in batch.items()}
+
+    def cpu(self):
+        self.nn_module.cpu()
+        self.nn_module.device = "cpu"
+        self.device = "cpu"
 
     def gpu(self):
         self.nn_module.cuda()
