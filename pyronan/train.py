@@ -22,7 +22,7 @@ parser_train.add_argument("--n_epochs", type=int, default=200)
 parser_train.add_argument("--pin_memory", action="store_true")
 parser_train.add_argument("--save_all", action="store_true")
 parser_train.add_argument("--save_last", action="store_true")
-parser_train.add_argument("--subcheck", type=float, default=None)
+parser_train.add_argument("--subcheck", type=int, default=None)
 
 
 def make_model(model, args, load=None, gpu=False, data_parallel=False):
@@ -69,7 +69,7 @@ def _loss2str(set_, i, n, loss, verbose):
     return x
 
 
-def process_epoch(model, set_, loader, log, i, n, callback, writter, verbose):
+def process_epoch(model, set_, loader, log, i, n, callback, verbose):
     loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
     for j, batch in enumerate(pbar):
@@ -77,37 +77,26 @@ def process_epoch(model, set_, loader, log, i, n, callback, writter, verbose):
         pbar.set_description(_loss2str(set_, i, n, loss, verbose))
         for key, value in loss.items():
             log[i][f"{set_}_{key}"] = value
-            if writter is not None:
-                writter.add_scalar(f"{set_}_{key}", value)
-        if callback is not None and (j + 1) % callback[1] == 0:
-            callback[0](f"{i:03d}_{j:06d}_", log)
+            if callback is not None and callback.tensorboard is not None:
+                callback.tensorboard.add_scalar(f"{set_}_{key}", value)
+        if callback is not None and callback.step and (j + 1) % callback.step == 0:
+            callback.checkpoint(f"{i:03d}_{j:06d}_", log)
         if not math.isfinite(loss["loss"]):
             print("Loss is {}, stopping training".format(loss["loss"]))
             sys.exit(1)
     return log
 
 
-def trainer(
-    model,
-    loader_dict,
-    n_epochs,
-    checkpoint_func,
-    subcheck=None,
-    writter=None,
-    verbose=True,
-):
-    callback = (checkpoint_func, subcheck) if subcheck is not None else None
+def trainer(model, loader_dict, n_epochs, callback=None, verbose=True):
     log = []
     for i in range(n_epochs):
         t0 = time.time()
         log.append({"epoch": i})
         for set_, loader in loader_dict.items():
-            process_epoch(
-                model, set_, loader, log, i, n_epochs, callback, writter, verbose
-            )
+            process_epoch(model, set_, loader, log, i, n_epochs, callback, verbose)
         log[i]["lr"] = model.get_lr()
         log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
-        checkpoint_func(f"{i:03d}", log)
+        callback.checkpoint(f"{i:03d}", log)
         print(log[i])
         model.scheduler.step(log[-1]["val_loss"])
         if model.get_lr() < 5e-8 or math.isnan(log[-1]["train_loss"]):

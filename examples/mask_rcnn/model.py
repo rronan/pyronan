@@ -27,26 +27,16 @@ class MaskRCNN(Model):
         )
         super().__init__(nn_module, args)
 
-    def step_train(self, images, targets):
-        self.nn_module.train()
-        loss_dict = self.nn_module(images, targets)
-        loss = sum(loss for loss in loss_dict.values())
-        self.update(loss)
-        loss_dict["loss"] = loss
-        return {k: v.item() for k, v in loss_dict.items()}
-
-    def step_eval(self, images, targets):
-        # self.nn_module.eval()
-        loss_dict = self.nn_module(images, targets)
-        loss = sum(loss for loss in loss_dict.values())
-        loss_dict["loss"] = loss
-        return {k: v.item() for k, v in loss_dict.items()}
-
     def step(self, batch, set_):
         images = list(image.to(self.device) for image in batch[0])
         targets = [{k: v.to(self.device) for k, v in t.items()} for t in batch[1]]
         if set_ == "train":
-            return self.step_train(images, targets)
-        elif set_ == "val":
+            loss_dict = self.nn_module(images, targets)
+        else:
             with torch.no_grad():
-                return self.step_eval(images, targets)
+                loss_dict = self.nn_module(images, targets)
+        loss = sum(loss for loss in loss_dict.values())
+        if set_ == "train":
+            self.update(loss)
+        loss_dict["loss"] = loss
+        return {k: v.item() for k, v in loss_dict.items()}

@@ -8,7 +8,7 @@ import time
 from copy import copy
 from functools import wraps
 
-import path as pathpy
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 
@@ -166,6 +166,23 @@ def checkpoint(epoch, log, model=None, args=None, path=None):
     if "val_loss" in log[-1]:
         if log[-1]["val_loss"] == min([x["val_loss"] for x in log]):
             model.save(path, "best")
+
+
+class Callback:
+    def __init__(self, model, args):
+        self.model = model
+        self.args = args
+        self.step = getattr(args, "subcheck")
+        self.tensorboard = (
+            SummaryWriter() if getattr(args, "tensorboard", False) else None
+        )
+
+    def checkpoint(self, epoch, log):
+        checkpoint(epoch, log, model=self.model, args=self.args)
+        if self.tensorboard is not None:
+            self.tensorboard.flush()
+            if hasattr(self.model, "get_output"):
+                self.tensorboard.add_images(epoch, self.model, self.model.get_image())
 
 
 def load_from_keras(self, h5_path):

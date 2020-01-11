@@ -1,14 +1,15 @@
 from argparse import ArgumentParser
-from functools import partial
 from pathlib import Path
 
-from torch.utils.data import DataLoader
+import torch
+import torch.utils.data
 
 from dataset import Dataset_custom
 from examples.mask_rcnn.model import MaskRCNN
 from pyronan.model import parser_optim
 from pyronan.train import parser_train, trainer
-from pyronan.utils.misc import append_timestamp, checkpoint, parse_slice
+from pyronan.utils.misc import Callback, parse_slice
+from vision.references.detection import group_by_aspect_ratio
 
 
 def parse_args(argv=None):
@@ -17,6 +18,7 @@ def parse_args(argv=None):
         checkpoint="/sequoia/data1/rriochet/pyronan/examples/mask_rcnn/checkpoints",
         name="",
         bsz=8,
+        num_workers=4,
         optimizer="SGD",
         lr=0.0025,
     )
@@ -33,7 +35,9 @@ def parse_args(argv=None):
     parser.add_argument("--video_slice", type=parse_slice, default=slice(None))
     parser.add_argument("--num_classes", type=int, default=5)
     parser.add_argument("--step", type=int, default=10)
+    parser.add_argument("--aspect-ratio-group-factor", default=3, type=int)
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--tensorboard", action="store_true")
     args = parser.parse_args(argv)
     args.checkpoint /= args.name
     return args
@@ -43,30 +47,38 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
+def make_loader(args, set_):
+    dataset = Dataset_custom(args, set_)
+    sampler = torch.utils.data.RandomSampler(dataset)
+
+    if args.aspect_ratio_group_factor >= 0:
+        group_ids = group_by_aspect_ratio.create_aspect_ratio_groups(
+            dataset, k=args.aspect_ratio_group_factor
+        )
+        batch_sampler = group_by_aspect_ratio.GroupedBatchSampler(
+            sampler, group_ids, args.bsz
+        )
+    else:
+        batch_sampler = torch.utils.data.BatchSampler(sampler, args.bsz, drop_last=True)
+    loader = torch.utils.data.DataLoader(
+        dataset,
+        batch_sampler=batch_sampler,
+        num_workers=args.num_workers,
+        collate_fn=collate_fn,
+    )
+    return loader
+
+
 def main():
     args = parse_args()
     print(args)
-    loader_dict = {
-        "train": DataLoader(
-            Dataset_custom(args, "train"),
-            args.bsz,
-            args.num_workers,
-            collate_fn=collate_fn,
-        ),
-        "val": DataLoader(
-            Dataset_custom(args, "val"),
-            args.bsz,
-            args.num_workers,
-            collate_fn=collate_fn,
-        ),
-    }
+    loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
     model = MaskRCNN(args)
     if args.gpu:
         model.gpu()
     if args.data_parallel:
         model.data_parallel()
-    checkpoint_func = partial(checkpoint, model=model, args=args)
-    trainer(model, loader_dict, args.n_epochs, checkpoint_func, verbose=args.verbose)
+    trainer(model, loader_dict, args.n_epochs, Callback(model, args), args.verbose)
 
 
 if __name__ == "__main__":
