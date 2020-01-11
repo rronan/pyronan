@@ -22,15 +22,15 @@ from argparse import ArgumentParser
 
 from torch.utils.data import DataLoader
 
-from pyronan.model import parser as parser_model
+from pyronan.model import parser_optim 
 from pyronan.train import trainer
-from pyronan.train import parser as parser_train
+from pyronan.train import parser_train
 from pyronan.utils.misc import append_timestamp, checkpoint
 
 
-parser = ArgumentParser(parents=[parser_model, parser_train])
+parser = ArgumentParser(parents=[parser_model, parser_optim])
 parser.add_argument("--name", type=append_timestamp, default='')
-args = parser.parse_args(argv)
+args = parser.parse_args()
 args.checkpoint /= args.name
 
 

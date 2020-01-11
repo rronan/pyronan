@@ -61,10 +61,14 @@ class Model(object):
 
     def step(self, batch, set_):
         self.x, self.y = batch[0].to(self.device), batch[1].to(self.device)
-        self.pred = self.nn_module(self.x)
-        loss = self.loss.forward(self.pred, self.y)
         if set_ == "train":
+            self.pred = self.nn_module(self.x)
+            loss = self.loss.forward(self.pred, self.y)
             self.update(loss)
+        else:
+            with torch.no_grad():
+                self.pred = self.nn_module(self.x)
+                loss = self.loss.forward(self.pred, self.y)
         return {"loss": loss.data.item()}
 
     def load(self, path):
