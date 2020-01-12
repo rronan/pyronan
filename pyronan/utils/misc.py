@@ -2,27 +2,20 @@ import argparse
 import json
 import os
 import pathlib
-import random
 import re
 import time
 from copy import copy
 from functools import wraps
 
-from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
 
-def obj_nan(x):
-    x_flat = x.contiguous().view(x.size(0), x.size(1), -1)
-    isnan = (x_flat != x_flat).any(-1)
-    for _ in range(len(x.shape) - len(isnan.shape)):
-        isnan = isnan.unsqueeze(-1)
-    isnan = isnan.expand(x.shape)
-    return isnan
+class Nop:
+    def nop(*args, **kw):
+        pass
 
-
-def fillnan(tensor):
-    return tensor.masked_fill(obj_nan(tensor), 0)
+    def __getattr__(self, _):
+        return self.nop
 
 
 def chunks(l, n):
@@ -65,15 +58,6 @@ def mp_cache(mp_dict):
         return wrapper
 
     return decorate
-
-
-def set_seed(seed, gpu):
-    import torch
-
-    random.seed(seed)
-    torch.manual_seed(seed)
-    if gpu:
-        torch.cuda.manual_seed_all(seed)
 
 
 def parse_slice(s):
@@ -166,59 +150,3 @@ def checkpoint(epoch, log, model=None, args=None, path=None):
     if "val_loss" in log[-1]:
         if log[-1]["val_loss"] == min([x["val_loss"] for x in log]):
             model.save(path, "best")
-
-
-class Callback:
-    def __init__(self, model, args):
-        self.model = model
-        self.args = args
-        self.interval = getattr(args, "subcheck")
-        self.step = 0
-        self.tensorboard = None
-        if getattr(args, "tensorboard", False):
-            self.tensorboard = SummaryWriter(log_dir=args.checkpoint)
-
-    def add_scalar_dict(self, loss_dict, set_):
-        for key, value in loss_dict.items():
-            self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
-
-    def checkpoint(self, epoch, log):
-        checkpoint(epoch, log, model=self.model, args=self.args)
-        if self.tensorboard is not None:
-            self.tensorboard.flush()
-            if hasattr(self.model, "get_output"):
-                self.tensorboard.add_images(epoch, self.model, self.model.get_image())
-
-
-class Nop:
-    def nop(*args, **kw):
-        pass
-
-    def __getattr__(self, _):
-        return self.nop
-
-
-def load_from_keras(self, h5_path):
-    import torch
-    import h5py
-    import torch.nn as nn
-
-    print("loading weights from %s" % h5_path)
-    f = h5py.File(h5_path)
-    k = 1
-    numel = 0
-    for m in self.modules():
-        if isinstance(m, nn.Conv2d):
-            w = f["model_weights"]["conv2d_%d" % k]["conv2d_%d" % k]
-            m.weight.data.copy_(
-                torch.FloatTensor(w["kernel:0"].value).permute(3, 2, 0, 1)
-            )
-            m.bias.data.copy_(torch.FloatTensor(w["bias:0"].value))
-            numel += m.weight.data.numel()
-            numel += m.bias.data.numel()
-            k += 1
-    try:
-        w = f["model_weights"]["conv2d_%d" % k]["conv2d_%d" % k]["kernel:0"]
-        print("test failed: ", w.value)
-    except Exception:
-        print("success, number of parameters copied: %d" % numel)

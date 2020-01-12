@@ -1,4 +1,6 @@
 from argparse import ArgumentParser
+from pathlib import Path
+from pydoc import locate
 
 import torch
 import torch.optim as optim
@@ -8,20 +10,38 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from pyronan.utils.misc import Nop
 
-parser_optim = ArgumentParser(add_help=False)
-parser_optim.add_argument("--grad_clip", type=float, default=None)
-parser_optim.add_argument("--lr", type=float, default=0.001, help="Learning rate")
-parser_optim.add_argument("--lr_decay", type=float, default=0.1)
-parser_optim.add_argument("--lr_patience", type=int, default=10)
-parser_optim.add_argument("--optimizer", default="Adam")
-parser_optim.add_argument("--weight_decay", type=float, default=0)
+parser_model = ArgumentParser(add_help=False)
+parser_model.add_argument("--grad_clip", type=float, default=None)
+parser_model.add_argument("--lr", type=float, default=0.001, help="Learning rate")
+parser_model.add_argument("--lr_decay", type=float, default=0.1)
+parser_model.add_argument("--lr_patience", type=int, default=10)
+parser_model.add_argument("--optimizer", default="Adam")
+parser_model.add_argument("--weight_decay", type=float, default=0)
+parser_model.add_argument("--load", type=Path, default=None)
+parser_model.add_argument("--data_parallel", action="store_true")
+parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 
 
-class Model(object):
+def make_model(Model, args, gpu=False, data_parallel=False, load=None):
+    if type(Model) is str:
+        print("importing", Model)
+        Model = locate(Model)
+    model = Model(args)
+    if load is not None:
+        model.load(load)
+    if gpu:
+        model.gpu()
+    if data_parallel:
+        model.data_parallel()
+    print(f"n parameters: {model.get_num_parameters()}")
+    return model
+
+
+class Model:
     def __init__(self, nn_module=None, args_optim=None):
         super().__init__()
         if args_optim is None:
-            args_optim = parser_optim.parse_args()
+            args_optim = parser_model.parse_args()
         self.device = "cpu"
         self.is_data_parallel = False
         self.nn_module = nn_module

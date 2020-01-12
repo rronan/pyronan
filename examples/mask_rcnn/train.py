@@ -6,14 +6,14 @@ import torch.utils.data
 
 from dataset import Dataset_custom
 from examples.mask_rcnn.model import MaskRCNN
-from pyronan.model import parser_optim
-from pyronan.train import make_model, parser_train, trainer
+from pyronan.model import make_model, parser_model
+from pyronan.train import parser_train, trainer
 from pyronan.utils.misc import Callback, parse_slice
 from vision.references.detection import group_by_aspect_ratio
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser(parents=[parser_optim, parser_train])
+    parser = ArgumentParser(parents=[parser_model, parser_train])
     parser.set_defaults(
         checkpoint="/sequoia/data1/rriochet/pyronan/examples/mask_rcnn/checkpoints",
         name="",
@@ -30,6 +30,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--input_prefix", type=Path, default="/sata/rriochet/intphys2019/traintest"
     )
+    parser.add_argument("--load", type=Path, default=None)
     parser.add_argument("--hw", type=int, default=288)
     parser.add_argument("--N_o", type=int, default=6, help="number of balls")
     parser.add_argument("--video_slice", type=parse_slice, default=slice(None))
@@ -37,7 +38,6 @@ def parse_args(argv=None):
     parser.add_argument("--step", type=int, default=10)
     parser.add_argument("--aspect-ratio-group-factor", default=3, type=int)
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--tensorboard", action="store_true")
     args = parser.parse_args(argv)
     args.checkpoint /= args.name
     return args
@@ -72,7 +72,7 @@ def main():
     args = parse_args()
     print(args)
     loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
-    model = make_model(MaskRCNN, args, None, args.gpu, args.data_parallel)
+    model = make_model(MaskRCNN, args, args.gpu, args.data_parallel, args.load)
     trainer(model, loader_dict, args.n_epochs, Callback(model, args), args.verbose)
 
 
