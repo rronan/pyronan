@@ -1,5 +1,4 @@
 import math
-import sys
 import time
 from argparse import ArgumentParser
 from pydoc import locate
@@ -8,7 +7,7 @@ from path import Path
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from pyronan.utils.misc import append_timestamp
+from pyronan.utils.misc import Nop, append_timestamp
 
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--bsz", type=int, help="batch size")
@@ -23,10 +22,13 @@ parser_train.add_argument("--pin_memory", action="store_true")
 parser_train.add_argument("--save_all", action="store_true")
 parser_train.add_argument("--save_last", action="store_true")
 parser_train.add_argument("--subcheck", type=int, default=None)
+parser_train.add_argument("--tensorboard", action="store_true")
 
 
-def make_model(model, args, load=None, gpu=False, data_parallel=False):
-    model = locate(model)(args)
+def make_model(model, args, gpu=False, data_parallel=False, load=None):
+    if type(model) is str:
+        print("importing", model)
+        model = locate(model)(args)
     if load is not None:
         model.load(load)
     if gpu:
@@ -69,7 +71,7 @@ def _loss2str(set_, i, n, loss, verbose):
     return x
 
 
-def process_epoch(model, set_, loader, log, i, n, callback, verbose):
+def process_epoch(model, set_, loader, log, i, n, verbose, callback):
     loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
     for j, batch in enumerate(pbar):
@@ -77,17 +79,19 @@ def process_epoch(model, set_, loader, log, i, n, callback, verbose):
         pbar.set_description(_loss2str(set_, i, n, loss, verbose))
         for key, value in loss.items():
             log[i][f"{set_}_{key}"] = value
-            if callback is not None and callback.tensorboard is not None:
-                callback.tensorboard.add_scalar(f"{set_}_{key}", value)
-        if callback is not None and callback.step and (j + 1) % callback.step == 0:
-            callback.checkpoint(f"{i:03d}_{j:06d}_", log)
-        if not math.isfinite(loss["loss"]):
-            print("Loss is {}, stopping training".format(loss["loss"]))
-            sys.exit(1)
+        callback.add_scalar_dict(loss, set_)
+        if callback.interval is not None and (j + 1) % callback.interval == 0:
+            callback.checkpoint(f"sub{callback.step}_", log)
+        callback.step += 1
     return log
 
 
-def trainer(model, loader_dict, n_epochs, callback=None, verbose=True):
+class DummyCallback(Nop):
+    step = 0
+    interval = None
+
+
+def trainer(model, loader_dict, n_epochs, verbose=True, callback=DummyCallback):
     log = []
     for i in range(n_epochs):
         t0 = time.time()

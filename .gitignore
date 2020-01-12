@@ -4,3 +4,5 @@ pyronan/examples/__pycache__/
 pyronan/examples/checkpoints/
 __pycache__/
 pyronan.egg-info/
+examples/mask_rcnn/checkpoints/
+examples/mask_rcnn/runs/

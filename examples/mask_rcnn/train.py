@@ -7,7 +7,7 @@ import torch.utils.data
 from dataset import Dataset_custom
 from examples.mask_rcnn.model import MaskRCNN
 from pyronan.model import parser_optim
-from pyronan.train import parser_train, trainer
+from pyronan.train import make_model, parser_train, trainer
 from pyronan.utils.misc import Callback, parse_slice
 from vision.references.detection import group_by_aspect_ratio
 
@@ -50,7 +50,6 @@ def collate_fn(batch):
 def make_loader(args, set_):
     dataset = Dataset_custom(args, set_)
     sampler = torch.utils.data.RandomSampler(dataset)
-
     if args.aspect_ratio_group_factor >= 0:
         group_ids = group_by_aspect_ratio.create_aspect_ratio_groups(
             dataset, k=args.aspect_ratio_group_factor
@@ -73,11 +72,7 @@ def main():
     args = parse_args()
     print(args)
     loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
-    model = MaskRCNN(args)
-    if args.gpu:
-        model.gpu()
-    if args.data_parallel:
-        model.data_parallel()
+    model = make_model(MaskRCNN, args, None, args.gpu, args.data_parallel)
     trainer(model, loader_dict, args.n_epochs, Callback(model, args), args.verbose)
 
 

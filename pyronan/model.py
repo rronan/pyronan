@@ -6,6 +6,8 @@ from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from pyronan.utils.misc import Nop
+
 parser_optim = ArgumentParser(add_help=False)
 parser_optim.add_argument("--grad_clip", type=float, default=None)
 parser_optim.add_argument("--lr", type=float, default=0.001, help="Learning rate")
@@ -13,11 +15,6 @@ parser_optim.add_argument("--lr_decay", type=float, default=0.1)
 parser_optim.add_argument("--lr_patience", type=int, default=10)
 parser_optim.add_argument("--optimizer", default="Adam")
 parser_optim.add_argument("--weight_decay", type=float, default=0)
-
-
-class dummy_scheduler:
-    def step(*args, **kwargs):
-        return None
 
 
 class Model(object):
@@ -30,7 +27,7 @@ class Model(object):
         self.nn_module = nn_module
         if nn_module is None:
             self.optimizer = None
-            self.scheduler = dummy_scheduler
+            self.scheduler = Nop
         else:
             self.set_optim(args_optim)
 

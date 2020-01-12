@@ -172,10 +172,15 @@ class Callback:
     def __init__(self, model, args):
         self.model = model
         self.args = args
-        self.step = getattr(args, "subcheck")
-        self.tensorboard = (
-            SummaryWriter() if getattr(args, "tensorboard", False) else None
-        )
+        self.interval = getattr(args, "subcheck")
+        self.step = 0
+        self.tensorboard = None
+        if getattr(args, "tensorboard", False):
+            self.tensorboard = SummaryWriter(log_dir=args.checkpoint)
+
+    def add_scalar_dict(self, loss_dict, set_):
+        for key, value in loss_dict.items():
+            self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
 
     def checkpoint(self, epoch, log):
         checkpoint(epoch, log, model=self.model, args=self.args)
@@ -183,6 +188,14 @@ class Callback:
             self.tensorboard.flush()
             if hasattr(self.model, "get_output"):
                 self.tensorboard.add_images(epoch, self.model, self.model.get_image())
+
+
+class Nop:
+    def nop(*args, **kw):
+        pass
+
+    def __getattr__(self, _):
+        return self.nop
 
 
 def load_from_keras(self, h5_path):
