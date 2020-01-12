@@ -22,9 +22,8 @@ from argparse import ArgumentParser
 
 from torch.utils.data import DataLoader
 
-from pyronan.model import parser_optim 
-from pyronan.train import trainer
-from pyronan.train import parser_train
+from pyronan.model import parser_model
+from pyronan.train import trainer, parser_train
 from pyronan.utils.misc import append_timestamp, checkpoint
 
 
