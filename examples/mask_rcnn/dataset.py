@@ -31,13 +31,6 @@ class Dataset_custom(Dataset_ue):
                 area.append((bb[2] - bb[0]) * (bb[3] - bb[1]))
                 iscrowd.append(0)
                 masks.append(raw_mask == i)
-        if len(boxes) == 0:
-            boxes.append([self.hw / 3] * 2 + [2 * self.hw / 3] * 2)
-            labels.append(0)
-            area.append(self.hw ** 2 / 9)
-            iscrowd.append(0)
-            raw_mask[self.hw / 3 : -self.hw / 3] = 1
-            masks.append(raw_mask)
         return {
             "boxes": torch.FloatTensor(boxes),
             "labels": torch.LongTensor(labels),

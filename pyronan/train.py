@@ -67,7 +67,7 @@ def trainer(model, loader_dict, n_epochs, verbose=True, callback=DummyCallback):
         t0 = time.time()
         log.append({"epoch": i})
         for set_, loader in loader_dict.items():
-            process_epoch(model, set_, loader, log, i, n_epochs, callback, verbose)
+            process_epoch(model, set_, loader, log, i, n_epochs, verbose, callback)
         log[i]["lr"] = model.get_lr()
         log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
         callback.checkpoint(f"{i:03d}", log)

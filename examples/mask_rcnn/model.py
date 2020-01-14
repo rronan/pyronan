@@ -1,4 +1,5 @@
 import torch
+import torch.optim as optim
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
@@ -8,8 +9,12 @@ from pyronan.model import Model
 
 class MaskRCNN(Model):
     def __init__(self, args):
+        self.device = "cpu"
+        self.is_data_parallel = False
         # load an instance segmentation model pre-trained pre-trained on COCO
-        nn_module = torchvision.models.detection.maskrcnn_resnet50_fpn(pretrained=True)
+        nn_module = torchvision.models.detection.maskrcnn_resnet50_fpn(
+            pretrained=args.pretrained
+        )
 
         # get number of input features for the classifier
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
@@ -25,11 +30,34 @@ class MaskRCNN(Model):
         nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(
             in_features_mask, hidden_layer, args.num_classes
         )
-        super().__init__(nn_module, args)
+        self.grad_clip = args.grad_clip
+        kwargs = {}
+        if args.lr is not None:
+            kwargs["lr"] = args.lr
+        if args.weight_decay is not None:
+            kwargs["weight_decay"] = args.weight_decay
+        if not "backbone" in [x[0] for x in args.lr_list]:
+            nn_module.backbone.requires_grad_(False)
+        self.optimizer = getattr(optim, args.optimizer)(
+            [
+                {"params": getattr(nn_module, k).parameters(), "lr": v}
+                for k, v in args.lr_list
+            ]
+        )
+        self.scheduler = optim.lr_scheduler.MultiStepLR(
+            self.optimizer, milestones=args.lr_steps, gamma=args.lr_decay
+        )
+        self.nn_module = nn_module
 
     def step(self, batch, set_):
-        images = list(image.to(self.device) for image in batch[0])
-        targets = [{k: v.to(self.device) for k, v in t.items()} for t in batch[1]]
+        images, targets = [], []
+        for image, target in zip(*batch):
+            if len(target["boxes"]) == 0:
+                continue
+            images.append(image.to(self.device))
+            targets.append({k: v.to(self.device) for k, v in target.items()})
+        if len(images) == 0:
+            return {"loss": 0}
         if set_ == "train":
             loss_dict = self.nn_module(images, targets)
         else:

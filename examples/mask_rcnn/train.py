@@ -8,7 +8,8 @@ from dataset import Dataset_custom
 from examples.mask_rcnn.model import MaskRCNN
 from pyronan.model import make_model, parser_model
 from pyronan.train import parser_train, trainer
-from pyronan.utils.misc import Callback, parse_slice
+from pyronan.utils.misc import parse_slice
+from pyronan.utils.torchutil import Callback
 from vision.references.detection import group_by_aspect_ratio
 
 
@@ -20,7 +21,15 @@ def parse_args(argv=None):
         bsz=8,
         num_workers=4,
         optimizer="SGD",
-        lr=0.0025,
+        lr=0.02,
+        weight_decay=1e-4,
+        epoch=26,
+    )
+    parser.add_argument(
+        "--lr_list",
+        nargs="+",
+        type=lambda x: x.split(":"),
+        default=[["rpn", 0.025], ["roi_heads", 0.025]],
     )
     parser.add_argument(
         "--pretrained",
@@ -30,7 +39,6 @@ def parse_args(argv=None):
     parser.add_argument(
         "--input_prefix", type=Path, default="/sata/rriochet/intphys2019/traintest"
     )
-    parser.add_argument("--load", type=Path, default=None)
     parser.add_argument("--hw", type=int, default=288)
     parser.add_argument("--N_o", type=int, default=6, help="number of balls")
     parser.add_argument("--video_slice", type=parse_slice, default=slice(None))
@@ -73,7 +81,7 @@ def main():
     print(args)
     loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
     model = make_model(MaskRCNN, args, args.gpu, args.data_parallel, args.load)
-    trainer(model, loader_dict, args.n_epochs, Callback(model, args), args.verbose)
+    trainer(model, loader_dict, args.n_epochs, args.verbose, Callback(model, args))
 
 
 if __name__ == "__main__":

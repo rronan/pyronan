@@ -19,6 +19,13 @@ parser_model.add_argument("--optimizer", default="Adam")
 parser_model.add_argument("--weight_decay", type=float, default=0)
 parser_model.add_argument("--load", type=Path, default=None)
 parser_model.add_argument("--data_parallel", action="store_true")
+parser_model.add_argument(
+    "--lr-steps",
+    default=[16, 22],
+    nargs="+",
+    type=int,
+    help="decrease lr every step-size epochs",
+)
 parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 
 
