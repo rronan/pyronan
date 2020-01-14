@@ -1,10 +1,19 @@
 import torch
-import torch.optim as optim
 import torchvision
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from pyronan.model import Model
+
+
+def is_backbone_grad(lr):
+    for kv in lr:
+        if type(kv) is float:
+            return True
+        else:
+            if kv[0] == "backbone":
+                return True
+    return False
 
 
 class MaskRCNN(Model):
@@ -30,8 +39,9 @@ class MaskRCNN(Model):
         nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(
             in_features_mask, hidden_layer, args.num_classes
         )
-        if not "backbone" in [x[0] for x in args.lr_list]:
-            nn_module.backbone.requires_grad_(False)
+        backbone_grad = is_backbone_grad(args.lr)
+        print("training backbone", backbone_grad)
+        nn_module.backbone.requires_grad_(backbone_grad)
         super().__init__(nn_module, args)
 
     def step(self, batch, set_):

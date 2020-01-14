@@ -63,16 +63,17 @@ class Model:
 
     @staticmethod
     def _lr_arg(nn_module, kv):
-        if len(kv) == 0:
-            return {"params": nn_module.parameters(), "lr": kv[0]}
+        if type(kv) is float:
+            return {"params": nn_module.parameters(), "lr": kv}
         return {"params": getattr(nn_module, kv[0]).parameters(), "lr": kv[1]}
 
     def set_optim(self, args_optim):
         self.grad_clip = args_optim.grad_clip
-        kwargs = {"lr": [self._lr_arg(self.nn_module, kv) for kv in args_optim.lr_list]}
+        lr = [self._lr_arg(self.nn_module, kv) for kv in args_optim.lr]
+        kwargs = {}
         if args_optim.weight_decay is not None:
             kwargs["weight_decay"] = args_optim.weight_decay
-        self.optimizer = getattr(optim, args_optim.optimizer)(**kwargs)
+        self.optimizer = getattr(optim, args_optim.optimizer)(lr, **kwargs)
         self.lr_scheduler = ReduceLROnPlateau(
             self.optimizer,
             patience=args_optim.lr_patience,

@@ -24,6 +24,7 @@ def parse_args(argv=None):
     parser.add_argument("--step", type=int, default=10)
     parser.add_argument("--bsz", type=int, default=10)
     parser.add_argument("--cutoff", type=float, default=0.3)
+    parser.add_argument("--pretrained", action="store_true")
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     return args
