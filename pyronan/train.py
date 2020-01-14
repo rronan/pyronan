@@ -72,6 +72,6 @@ def trainer(model, loader_dict, n_epochs, verbose=True, callback=DummyCallback):
         log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
         callback.checkpoint(f"{i:03d}", log)
         print(log[i])
-        model.scheduler.step(log[-1]["val_loss"])
+        model.lr_scheduler.step(log[-1]["val_loss"])
         if model.get_lr() < 5e-8 or math.isnan(log[-1]["train_loss"]):
             break

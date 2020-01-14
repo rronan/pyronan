@@ -21,26 +21,15 @@ def parse_args(argv=None):
         bsz=8,
         num_workers=4,
         optimizer="SGD",
-        lr=0.02,
-        weight_decay=1e-4,
-        epoch=26,
+        weight_decay=0,
+        epoch=20,
+        lr=[["rpn", 0.025], ["roi_heads", 0.025]],
     )
-    parser.add_argument(
-        "--lr_list",
-        nargs="+",
-        type=lambda x: x.split(":"),
-        default=[["rpn", 0.025], ["roi_heads", 0.025]],
-    )
-    parser.add_argument(
-        "--pretrained",
-        help="Use pre-trained models from the modelzoo",
-        action="store_true",
-    )
+    parser.add_argument("--pretrained", action="store_true")
     parser.add_argument(
         "--input_prefix", type=Path, default="/sata/rriochet/intphys2019/traintest"
     )
     parser.add_argument("--hw", type=int, default=288)
-    parser.add_argument("--N_o", type=int, default=6, help="number of balls")
     parser.add_argument("--video_slice", type=parse_slice, default=slice(None))
     parser.add_argument("--num_classes", type=int, default=5)
     parser.add_argument("--step", type=int, default=10)
@@ -48,7 +37,8 @@ def parse_args(argv=None):
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     args.checkpoint /= args.name
-    return args
+    type_dict = {x.dest: x.type for x in parser._actions}
+    return args, type_dict
 
 
 def collate_fn(batch):
@@ -77,7 +67,7 @@ def make_loader(args, set_):
 
 
 def main():
-    args = parse_args()
+    args, _ = parse_args()
     print(args)
     loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
     model = make_model(MaskRCNN, args, args.gpu, args.data_parallel, args.load)

@@ -30,24 +30,9 @@ class MaskRCNN(Model):
         nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(
             in_features_mask, hidden_layer, args.num_classes
         )
-        self.grad_clip = args.grad_clip
-        kwargs = {}
-        if args.lr is not None:
-            kwargs["lr"] = args.lr
-        if args.weight_decay is not None:
-            kwargs["weight_decay"] = args.weight_decay
         if not "backbone" in [x[0] for x in args.lr_list]:
             nn_module.backbone.requires_grad_(False)
-        self.optimizer = getattr(optim, args.optimizer)(
-            [
-                {"params": getattr(nn_module, k).parameters(), "lr": v}
-                for k, v in args.lr_list
-            ]
-        )
-        self.scheduler = optim.lr_scheduler.MultiStepLR(
-            self.optimizer, milestones=args.lr_steps, gamma=args.lr_decay
-        )
-        self.nn_module = nn_module
+        super().__init__(nn_module, args)
 
     def step(self, batch, set_):
         images, targets = [], []

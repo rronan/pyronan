@@ -10,22 +10,25 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from pyronan.utils.misc import Nop
 
+
+def parse_lr(lr_list):
+    lr_list = lr_list.split(":")
+    for lr in lr_list:
+        lr[-1] = float(lr[-1])
+    return lr_list
+
+
 parser_model = ArgumentParser(add_help=False)
 parser_model.add_argument("--grad_clip", type=float, default=None)
-parser_model.add_argument("--lr", type=float, default=0.001, help="Learning rate")
+parser_model.add_argument(
+    "--lr", nargs="+", type=lambda x: x.split(":"), default=[1e-3]
+)
 parser_model.add_argument("--lr_decay", type=float, default=0.1)
 parser_model.add_argument("--lr_patience", type=int, default=10)
 parser_model.add_argument("--optimizer", default="Adam")
 parser_model.add_argument("--weight_decay", type=float, default=0)
 parser_model.add_argument("--load", type=Path, default=None)
 parser_model.add_argument("--data_parallel", action="store_true")
-parser_model.add_argument(
-    "--lr-steps",
-    default=[16, 22],
-    nargs="+",
-    type=int,
-    help="decrease lr every step-size epochs",
-)
 parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 
 
@@ -54,21 +57,23 @@ class Model:
         self.nn_module = nn_module
         if nn_module is None:
             self.optimizer = None
-            self.scheduler = Nop
+            self.lr_scheduler = Nop
         else:
             self.set_optim(args_optim)
 
+    @staticmethod
+    def _lr_arg(nn_module, kv):
+        if len(kv) == 0:
+            return {"params": nn_module.parameters(), "lr": kv[0]}
+        return {"params": getattr(nn_module, kv[0]).parameters(), "lr": kv[1]}
+
     def set_optim(self, args_optim):
         self.grad_clip = args_optim.grad_clip
-        kwargs = {}
-        if args_optim.lr is not None:
-            kwargs["lr"] = args_optim.lr
+        kwargs = {"lr": [self._lr_arg(self.nn_module, kv) for kv in args_optim.lr_list]}
         if args_optim.weight_decay is not None:
             kwargs["weight_decay"] = args_optim.weight_decay
-        self.optimizer = getattr(optim, args_optim.optimizer)(
-            self.nn_module.parameters(), **kwargs
-        )
-        self.scheduler = ReduceLROnPlateau(
+        self.optimizer = getattr(optim, args_optim.optimizer)(**kwargs)
+        self.lr_scheduler = ReduceLROnPlateau(
             self.optimizer,
             patience=args_optim.lr_patience,
             factor=args_optim.lr_decay,

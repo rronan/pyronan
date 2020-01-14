@@ -21,10 +21,13 @@ parser_dataset.add_argument("--slice", type=parse_slice, default=slice(None))
 parser_dataset.add_argument("--clip", type=float, default=10)
 
 
-def make_loader(dataset, args, set_, bsz, num_workers, pin_memory, shuffle=True):
-    dataset = locate(dataset)(args, set_)
+def make_loader(Dataset, args, set_, bsz, num_workers, pin_memory, shuffle=True):
+    if type(Dataset) is str:
+        print("importing", Dataset)
+        Dataset = locate(Dataset)
+    Dataset = locate(Dataset)(args, set_)
     loader = DataLoader(
-        dataset,
+        Dataset,
         batch_size=bsz,
         num_workers=num_workers,
         shuffle=shuffle,
