@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from functools import partial
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -9,10 +8,10 @@ from tqdm import tqdm
 
 from pyronan.dataset import make_loader
 from pyronan.examples.unet.dataset import Dataset
-from pyronan.examples.unet.ef_unet import EfficientNet_unet
+from pyronan.examples.unet.model import EfficientNet_unet
 from pyronan.model import make_model, parser_model
 from pyronan.train import parser_train, trainer
-from pyronan.utils.misc import append_timestamp, checkpoint, parse_slice, set_seed
+from pyronan.utils.misc import parse_slice, set_seed
 from pyronan.utils.torchutil import Callback
 
 
@@ -21,8 +20,6 @@ def parse_args(argv=None):
     parser.add_argument("task", nargs="+", choices=["train", "inference"])
     parser.add_argument("--model", default="EfficientNet_unet", help="model to train")
     parser.add_argument("--b", type=int, default=3)
-    parser.add_argument("--dataset", default="Dataset_ue")
-    parser.add_argument("--load", type=Path, default=None)
     parser.add_argument(
         "--input_prefix", type=Path, default="/sata/rriochet/intphys2019/test"
     )

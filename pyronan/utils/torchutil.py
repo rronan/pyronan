@@ -42,12 +42,12 @@ class Callback:
         for key, value in loss_dict.items():
             self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
 
-    def checkpoint(self, epoch, log):
-        checkpoint(epoch, log, model=self.model, args=self.args)
+    def checkpoint(self, epoch, log, tag=""):
+        checkpoint(f"{epoch:03d}{tag}", log, model=self.model, args=self.args)
         if self.tensorboard is not None:
+            if hasattr(self.model, "get_image"):
+                self.tensorboard.add_images(f"im_{tag}", self.model.get_image(), epoch)
             self.tensorboard.flush()
-            if hasattr(self.model, "get_output"):
-                self.tensorboard.add_images(epoch, self.model, self.model.get_image())
 
 
 def load_from_keras(self, h5_path):

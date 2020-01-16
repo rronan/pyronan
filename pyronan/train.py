@@ -51,7 +51,7 @@ def process_epoch(model, set_, loader, log, i, n, verbose, callback):
             log[i][f"{set_}_{key}"] = value
         callback.add_scalar_dict(loss, set_)
         if callback.interval is not None and (j + 1) % callback.interval == 0:
-            callback.checkpoint(f"sub{callback.step}_", log)
+            callback.checkpoint(i, log, f"_{set_}_{j}")
         callback.step += 1
     return log
 
@@ -70,7 +70,7 @@ def trainer(model, loader_dict, n_epochs, verbose=True, callback=DummyCallback):
             process_epoch(model, set_, loader, log, i, n_epochs, verbose, callback)
         log[i]["lr"] = model.get_lr()
         log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
-        callback.checkpoint(f"{i:03d}", log)
+        callback.checkpoint(i, log, f"_{set_}_last")
         print(log[i])
         model.lr_scheduler.step(log[-1]["val_loss"])
         if model.get_lr() < 5e-8 or math.isnan(log[-1]["train_loss"]):

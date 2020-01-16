@@ -11,18 +11,15 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from pyronan.utils.misc import Nop
 
 
-def parse_lr(lr_list):
-    lr_list = lr_list.split(":")
-    for lr in lr_list:
-        lr[-1] = float(lr[-1])
-    return lr_list
+def parse_lr(kv_str):
+    kv = kv_str.split(":")
+    kv[-1] = float(kv[-1])
+    return kv
 
 
 parser_model = ArgumentParser(add_help=False)
 parser_model.add_argument("--grad_clip", type=float, default=None)
-parser_model.add_argument(
-    "--lr", nargs="+", type=lambda x: x.split(":"), default=[1e-3]
-)
+parser_model.add_argument("--lr", nargs="+", type=parse_lr, default=[1e-3])
 parser_model.add_argument("--lr_decay", type=float, default=0.1)
 parser_model.add_argument("--lr_patience", type=int, default=10)
 parser_model.add_argument("--optimizer", default="Adam")
@@ -39,10 +36,11 @@ def make_model(Model, args, gpu=False, data_parallel=False, load=None):
     model = Model(args)
     if load is not None:
         model.load(load)
-    if gpu:
-        model.gpu()
     if data_parallel:
         model.data_parallel()
+        print("Training on", torch.cuda.device_count(), "GPUs!")
+    if gpu:
+        model.gpu()
     print(f"n parameters: {model.get_num_parameters()}")
     return model
 
@@ -109,10 +107,8 @@ class Model:
     def save(self, path, epoch):
         with open(path / f"{self.__class__.__name__}.txt", "w") as f:
             f.write(str(self))
-        if self.is_data_parallel:
-            state_dict = self.nn_module.module.state_dict()
-        else:
-            state_dict = self.nn_module.state_dict()
+        _state_dict = self.nn_module.state_dict()
+        state_dict = {k.replace(".module", "", 1): v for k, v in _state_dict.items()}
         torch.save(state_dict, path / f"weights_{epoch}.pth")
 
     def to_device(self, batch):

@@ -22,7 +22,7 @@ def parse_args(argv=None):
         num_workers=4,
         optimizer="SGD",
         weight_decay=0,
-        epoch=20,
+        n_epochs=40,
         lr=[["rpn", 0.025], ["roi_heads", 0.025]],
     )
     parser.add_argument("--pretrained", action="store_true")

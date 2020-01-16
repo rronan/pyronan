@@ -18,12 +18,12 @@ class Dataset_custom(Dataset_ue):
         dir_ = self.dir_list[video_idx]
         raw_mask, idx_list = self._get_mask_and_status(dir_, frame_idx)
         boxes, labels, area, iscrowd, masks = [], [], [], [], []
-        for label, idx in enumerate(idx_list):
-            for i in idx[1:]:
+        for label, idx in enumerate(idx_list[1:]):
+            for i in idx:
                 xx, yy = (raw_mask == i).nonzero()
                 if len(xx) == 0 or len(yy) == 0:
                     continue
-                bb = [xx.min(), yy.min(), xx.max(), yy.max()]
+                bb = [yy.min(), xx.min(), yy.max(), xx.max()]
                 if bb[0] == bb[2] or bb[1] == bb[3]:
                     continue
                 boxes.append(bb)
