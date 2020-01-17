@@ -43,10 +43,11 @@ class Callback:
             self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
 
     def checkpoint(self, epoch, log, tag=""):
-        checkpoint(f"{epoch:03d}{tag}", log, model=self.model, args=self.args)
+        checkpoint(f"{epoch:03d}_{tag}", log, model=self.model, args=self.args)
         if self.tensorboard is not None:
             if hasattr(self.model, "get_image"):
                 self.tensorboard.add_images(f"im_{tag}", self.model.get_image(), epoch)
+            self.tensorboard.add_hparams(vars(self.args))
             self.tensorboard.flush()
 
 

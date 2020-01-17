@@ -26,7 +26,7 @@ def process_batch(model, batch, loss, set_, j):
     res = model.step(batch, set_)
     for key, value in res.items():
         try:
-            loss[key] = (loss[key] * j + value) / (j + 1)
+            loss[key] = (loss[key] * (j - 1) + value) / j
         except KeyError:
             loss[key] = value
     return loss
@@ -44,14 +44,14 @@ def _loss2str(set_, i, n, loss, verbose):
 def process_epoch(model, set_, loader, log, i, n, verbose, callback):
     loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
-    for j, batch in enumerate(pbar):
+    for j, batch in enumerate(pbar, 1):
         loss = process_batch(model, batch, loss, set_, j)
         pbar.set_description(_loss2str(set_, i, n, loss, verbose))
         for key, value in loss.items():
             log[i][f"{set_}_{key}"] = value
         callback.add_scalar_dict(loss, set_)
-        if callback.interval is not None and (j + 1) % callback.interval == 0:
-            callback.checkpoint(i, log, f"_{set_}_{j}")
+        if callback.interval is not None and j % callback.interval == 0:
+            callback.checkpoint(i, log, f"{set_}_{j}")
         callback.step += 1
     return log
 
@@ -70,7 +70,7 @@ def trainer(model, loader_dict, n_epochs, verbose=True, callback=DummyCallback):
             process_epoch(model, set_, loader, log, i, n_epochs, verbose, callback)
         log[i]["lr"] = model.get_lr()
         log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
-        callback.checkpoint(i, log, f"_{set_}_last")
+        callback.checkpoint(i, log, f"{set_}_last")
         print(log[i])
         model.lr_scheduler.step(log[-1]["val_loss"])
         if model.get_lr() < 5e-8 or math.isnan(log[-1]["train_loss"]):
