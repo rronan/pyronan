@@ -34,6 +34,8 @@ def parse_args(argv=None):
     parser.add_argument("--num_classes", type=int, default=5)
     parser.add_argument("--step", type=int, default=10)
     parser.add_argument("--aspect-ratio-group-factor", default=3, type=int)
+    parser.add_argument("--min_size", default=288, type=int)
+    parser.add_argument("--max_size", default=288, type=int)
     parser.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     args.checkpoint /= args.name

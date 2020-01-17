@@ -47,7 +47,6 @@ class Callback:
         if self.tensorboard is not None:
             if hasattr(self.model, "get_image"):
                 self.tensorboard.add_images(f"im_{tag}", self.model.get_image(), epoch)
-            self.tensorboard.add_hparams(vars(self.args))
             self.tensorboard.flush()
 
 
