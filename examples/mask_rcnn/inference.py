@@ -2,17 +2,10 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
-import torch
-import torch.nn as nn
-import torchvision
-from PIL import Image, ImageDraw
-from torchvision.models.detection import maskrcnn_resnet50_fpn
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
-from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from pyronan.examples.mask_rcnn.model import MaskRCNN
 from pyronan.examples.mask_rcnn.train import make_loader
-from pyronan.model import Model, make_model, parser_model
+from pyronan.model import make_model, parser_model
 from pyronan.train import parser_train
 from pyronan.utils.image import COLOR_LIST, ti, tis
 from pyronan.utils.misc import parse_slice

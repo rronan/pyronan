@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from PIL import ImageDraw
-from torchvision.models.detection import maskrcnn_resnet50_fpn
+from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
@@ -31,19 +31,10 @@ def draw(args):
     return np.array(im)
 
 
-class MaskRCNN(Model):
-    def __init__(self, args):
+class RCNN(Model):
+    def __init__(self, nn_module, args):
         self.device = "cpu"
         self.is_data_parallel = False
-        nc = args.num_classes
-        nn_module = maskrcnn_resnet50_fpn(
-            pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
-        )
-        in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
-        nn_module.roi_heads.box_predictor = FastRCNNPredictor(in_features, nc)
-        in_features_mask = nn_module.roi_heads.mask_predictor.conv5_mask.in_channels
-        nh = 256
-        nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, nh, nc)
         backbone_grad = is_backbone_grad(args.lr)
         print("training backbone", backbone_grad)
         nn_module.backbone.requires_grad_(backbone_grad)
@@ -86,3 +77,24 @@ class MaskRCNN(Model):
         pred = list(map(draw, zip(images, pred_boxes, pred_labels)))
         res = np.concatenate([true, pred], axis=1).transpose((0, 3, 1, 2))
         return (res * 255).astype("uint8")
+
+
+class FasterRCNN(RCNN):
+    def __init__(self, args):
+        nc = args.num_classes
+        nn_module = fasterrcnn_resnet50_fpn(pretrained=args.pretrained)
+        in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
+        nn_module.roi_heads.box_predictor = FastRCNNPredictor(in_features, nc)
+        super().__init__(nn_module, args)
+
+
+class MaskRCNN(RCNN):
+    def __init__(self, args):
+        nc = args.num_classes
+        nn_module = maskrcnn_resnet50_fpn(pretrained=args.pretrained)
+        in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
+        nn_module.roi_heads.box_predictor = FastRCNNPredictor(in_features, nc)
+        in_features_mask = nn_module.roi_heads.mask_predictor.conv5_mask.in_channels
+        nh = 256
+        nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, nh, nc)
+        super().__init__(nn_module, args)

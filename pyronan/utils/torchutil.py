@@ -39,8 +39,9 @@ class Callback:
             self.tensorboard = SummaryWriter(log_dir=args.checkpoint)
 
     def add_scalar_dict(self, loss_dict, set_):
-        for key, value in loss_dict.items():
-            self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
+        if self.tensorboard is not None:
+            for key, value in loss_dict.items():
+                self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
 
     def checkpoint(self, epoch, log, tag=""):
         checkpoint(f"{epoch:03d}_{tag}", log, model=self.model, args=self.args)
