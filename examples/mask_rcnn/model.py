@@ -1,10 +1,7 @@
-from copy import deepcopy
-
 import numpy as np
 import torch
 import torch.nn as nn
-import torchvision
-from PIL import Image, ImageDraw
+from PIL import ImageDraw
 from torchvision.models.detection import maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
@@ -57,7 +54,7 @@ class MaskRCNN(Model):
         self.is_data_parallel = True
 
     def step(self, batch, set_):
-        self.batch = [batch[0], deepcopy(batch[1])]
+        self.batch = batch
         images, targets = [], []
         for image, target in zip(*batch):
             if len(target["boxes"]) == 0:
