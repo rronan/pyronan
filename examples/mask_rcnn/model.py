@@ -68,30 +68,50 @@ class RCNN(Model):
         images, true_boxes, true_labels, pred_boxes, pred_labels = [], [], [], [], []
         for image, target, prediction in zip(*self.batch, predictions):
             images.append(image.numpy().transpose((1, 2, 0)))
-            true_boxes.append(target["boxes"].numpy().tolist())
-            true_labels.append(target["labels"].numpy().tolist())
+            c = target["labels"].detach().cpu().numpy() != (self.num_classes - 1)
+            true_boxes.append(target["boxes"].numpy()[c].tolist())
+            true_labels.append(target["labels"].numpy()[c].tolist())
             c = prediction["scores"].detach().cpu().numpy() > cutoff
+            c *= prediction["labels"].detach().cpu().numpy() != (self.num_classes - 1)
             pred_boxes.append(prediction["boxes"].detach().cpu().numpy()[c].tolist())
             pred_labels.append(prediction["labels"].detach().cpu().numpy()[c].tolist())
         true = list(map(draw, zip(images, true_boxes, true_labels)))
         pred = list(map(draw, zip(images, pred_boxes, pred_labels)))
+        max_size = [max([true[0].shape[i], true[1].shape[i]]) for i in [0, 1]]
+        p = [[max_size[i] - x.shape[i] for i in [0, 1]] for x in true]
+        true = [
+            np.pad(true[i], pad_width=((0, p[i][0]), (0, p[i][1]), (0, 0)))
+            for i in [0, 1]
+        ]
+        true = np.array(true)
+        pred = [
+            np.pad(pred[i], pad_width=((0, p[i][0]), (0, p[i][1]), (0, 0)))
+            for i in [0, 1]
+        ]
+        pred = np.array(pred)
         res = np.concatenate([true, pred], axis=1).transpose((0, 3, 1, 2))
         return (res * 255).astype("uint8")
 
 
 class FasterRCNN(RCNN):
     def __init__(self, args):
-        nc = args.num_classes
-        nn_module = fasterrcnn_resnet50_fpn(pretrained=args.pretrained)
+        self.num_classes = args.num_classes
+        nn_module = fasterrcnn_resnet50_fpn(
+            pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
+        )
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
-        nn_module.roi_heads.box_predictor = FastRCNNPredictor(in_features, nc)
+        nn_module.roi_heads.box_predictor = FastRCNNPredictor(
+            in_features, self.num_classes
+        )
         super().__init__(nn_module, args)
 
 
 class MaskRCNN(RCNN):
     def __init__(self, args):
         nc = args.num_classes
-        nn_module = maskrcnn_resnet50_fpn(pretrained=args.pretrained)
+        nn_module = maskrcnn_resnet50_fpn(
+            pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
+        )
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
         nn_module.roi_heads.box_predictor = FastRCNNPredictor(in_features, nc)
         in_features_mask = nn_module.roi_heads.mask_predictor.conv5_mask.in_channels
