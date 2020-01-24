@@ -27,7 +27,9 @@ def draw(args):
     im = ti(image_array)
     draw = ImageDraw.Draw(im)
     for box, label in zip(boxes, labels):
-        draw.rectangle(box, outline=tuple(COLOR_LIST[label]))
+        if label != 1:
+            assert label != 0
+            draw.rectangle(box, outline=tuple(COLOR_LIST[label]))
     return np.array(im)
 
 
@@ -60,6 +62,9 @@ class RCNN(Model):
             self.update(loss)
         loss_dict["loss"] = loss
         return {k: v.item() for k, v in loss_dict.items()}
+
+    def get_input_to_model(self):
+        return [image.to(self.device) for image in self.batch[0]]
 
     def get_image(self, cutoff=0):
         self.nn_module.eval()
