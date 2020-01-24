@@ -67,6 +67,8 @@ class Model:
 
     def set_optim(self, args_optim):
         self.grad_clip = args_optim.grad_clip
+        if type(args_optim.lr) is float:
+            args_optim.lr = [args_optim.lr]
         lr = [self._lr_arg(self.nn_module, kv) for kv in args_optim.lr]
         kwargs = {}
         if args_optim.weight_decay is not None:
@@ -102,6 +104,7 @@ class Model:
     def load(self, path):
         print(f"loading {path}")
         state_dict = torch.load(path, map_location=lambda storage, loc: storage)
+        state_dict = {k.replace(".module", "", 1): v for k, v in state_dict.items()}
         self.nn_module.load_state_dict(state_dict)
 
     def save(self, path, epoch):

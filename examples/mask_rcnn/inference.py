@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from pathlib import Path
 
 import numpy as np
+from PIL import ImageDraw
 
 from pyronan.examples.mask_rcnn.model import MaskRCNN
 from pyronan.examples.mask_rcnn.train import make_loader
@@ -32,7 +33,7 @@ def parse_args(argv=None):
 def main():
     args = parse_args()
     print(args)
-    loader = make_loader(args, "val")
+    loader = make_loader(args, "train")
     model = make_model(MaskRCNN, args, args.gpu, args.data_parallel, args.load)
     model.nn_module.eval()
     for i, batch in enumerate(loader):
