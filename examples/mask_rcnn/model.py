@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torchvision
 from PIL import ImageDraw
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
@@ -33,6 +34,7 @@ def draw(args):
 
 class RCNN(Model):
     def __init__(self, nn_module, args):
+        self.nms_iou = getattr(args, "nms_iou", None)
         self.device = "cpu"
         self.is_data_parallel = False
         backbone_grad = is_backbone_grad(args.lr)
@@ -91,6 +93,14 @@ class RCNN(Model):
         pred = np.array(pred)
         res = np.concatenate([true, pred], axis=1).transpose((0, 3, 1, 2))
         return (res * 255).astype("uint8")
+
+    def __call__(self, x):
+        y = self.nn_module(x)
+        if self.nms_iou is not None:
+            keep = torchvision.ops.nms(y["boxes"], y["scores"], self.nms_iou)
+            for k in ["boxes", "labels", "masks"]:
+                y[k] = y[k].select(keep)
+        return y
 
 
 class FasterRCNN(RCNN):

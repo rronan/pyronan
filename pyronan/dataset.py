@@ -4,18 +4,13 @@ from pydoc import locate
 import numpy as np
 import torch
 import torch.utils.data
-from path import Path
 from torch.utils.data import DataLoader
 
 from pyronan.utils.misc import parse_slice
 
 parser_dataset = ArgumentParser(add_help=False)
-parser_dataset.add_argument("--frame_prefix", type=Path, default=None)
-parser_dataset.add_argument("--input_prefix", type=Path, default=None)
 parser_dataset.add_argument("--item_list", nargs="+", default=[])
 parser_dataset.add_argument("--hw", type=int, default=128)
-parser_dataset.add_argument("--nc_in", type=int, default=None)
-parser_dataset.add_argument("--nc_out", type=int, default=None)
 parser_dataset.add_argument("--normalize", action="store_true")
 parser_dataset.add_argument("--slice", type=parse_slice, default=slice(None))
 parser_dataset.add_argument("--clip", type=float, default=10)
