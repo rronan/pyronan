@@ -12,13 +12,13 @@ from PIL import Image
 COLOR_LIST = [
     [int(c * 255) for c in Color(name).rgb][:3]
     for name in [
+        "red",
+        "green",
         "yellow",
         "orange",
         "turquoise",
         "blue",
         "firebrick",
-        "red",
-        "green",
         "gray",
         "magenta",
         "brown",
