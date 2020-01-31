@@ -1,20 +1,15 @@
 import math
 import time
 from argparse import ArgumentParser
-from pydoc import locate
 
-from path import Path
 from tqdm import tqdm
 
-from pyronan.utils.misc import Nop, append_timestamp
+from pyronan.utils.misc import Nop
 
 parser_train = ArgumentParser(add_help=False)
+parser_train.add_argument("--train_epochs", type=int, default=200)
 parser_train.add_argument("--bsz", type=int, help="batch size")
-parser_train.add_argument("--checkpoint", type=Path)
-parser_train.add_argument("--seed", type=int, default=0)
-parser_train.add_argument("--name", type=append_timestamp, default="")
 parser_train.add_argument("--num_workers", type=int, default=20)
-parser_train.add_argument("--n_epochs", type=int, default=200)
 parser_train.add_argument("--pin_memory", action="store_true")
 parser_train.add_argument("--save_all", action="store_true")
 parser_train.add_argument("--save_last", action="store_true")
@@ -61,13 +56,13 @@ class DummyCallback(Nop):
     interval = None
 
 
-def trainer(model, loader_dict, n_epochs, verbose=True, callback=DummyCallback):
+def trainer(model, loader_dict, train_epochs, verbose=True, callback=DummyCallback):
     log = []
-    for i in range(n_epochs):
+    for i in range(train_epochs):
         t0 = time.time()
         log.append({"epoch": i})
         for set_, loader in loader_dict.items():
-            process_epoch(model, set_, loader, log, i, n_epochs, verbose, callback)
+            process_epoch(model, set_, loader, log, i, train_epochs, verbose, callback)
         log[i]["lr"] = model.get_lr()
         log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
         callback.checkpoint(i, log, f"{set_}_last")

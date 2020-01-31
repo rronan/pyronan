@@ -4,6 +4,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
+from copy import copy
 from pathlib import Path
 from pydoc import locate
 
@@ -11,7 +12,6 @@ import yaml
 from dask.distributed import Client
 from dask_jobqueue import SGECluster
 
-from pyronan.utils.html_results import make_html
 from pyronan.utils.misc import append_timestamp
 
 logging.basicConfig(level=logging.INFO)
@@ -83,11 +83,11 @@ def make_opt_list(config, merge_names):
     for grid in config["grids"]:
         grid = OrderedDict(grid)
         for values in itertools.product(*grid.values()):
-            opt = update_opt(baseopt, type_dict, dict(zip(grid.keys(), values)))
+            opt = update_opt(copy(baseopt), type_dict, dict(zip(grid.keys(), values)))
             if merge_names:
                 opt.name = config["name"]
             else:
-                opt.name = "_".join([config["name"], str(len(res))])
+                opt.name = "_".join([config["name"], f"{len(res):02d}"])
             res.append(opt)
     return res
 
@@ -158,6 +158,8 @@ def main():
     while is_running(job_list):
         time.sleep(args.wait)
         if args.make_html:
+            from pyronan.utils.html_results import make_html
+
             make_html(
                 config,
                 sorted([jb["opt"] for jb in job_list], key=lambda x: x.name),

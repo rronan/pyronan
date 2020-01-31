@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torchvision
 from PIL import ImageDraw
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
@@ -35,6 +36,7 @@ def draw(args):
 
 class RCNN(Model):
     def __init__(self, nn_module, args):
+        self.nms_iou = getattr(args, "nms_iou", None)
         self.device = "cpu"
         self.is_data_parallel = False
         self.min_size = args.min_size
@@ -99,18 +101,13 @@ class RCNN(Model):
         res = np.concatenate([true, pred], axis=1).transpose((0, 3, 1, 2))
         return (res * 255).astype("uint8")
 
-    def load(self, path):
-        print(f"loading {path}")
-        state_dict_old = self.nn_module.state_dict()
-        state_dict = torch.load(path, map_location=lambda storage, _: storage)
-        for (k_old, v_old), v in zip(state_dict_old.items(), state_dict.values()):
-            if not v_old.size() == v.size():
-                print("Load: size mismatch, skipping layer,", k_old)
-                print(v_old.size(), "!=", v.size())
-                state_dict.update({k_old: v_old})
-            else:
-                pass
-        self.nn_module.load_state_dict(state_dict)
+    def __call__(self, x):
+        y = self.nn_module(x)
+        if self.nms_iou is not None:
+            keep = torchvision.ops.nms(y["boxes"], y["scores"], self.nms_iou)
+            for k in ["boxes", "labels", "masks"]:
+                y[k] = y[k].select(keep)
+        return y
 
 
 class FasterRCNN(RCNN):
