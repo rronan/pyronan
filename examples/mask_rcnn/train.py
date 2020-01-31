@@ -5,8 +5,8 @@ import torch
 import torch.utils.data
 
 from dataset import Dataset_custom
-from examples.mask_rcnn.model import MaskRCNN
 from pyronan.model import make_model, parser_model
+from pyronan.models.faster_rcnn import MaskRCNN
 from pyronan.train import parser_train, trainer
 from pyronan.utils.misc import parse_slice
 from pyronan.utils.torchutil import Callback

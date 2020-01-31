@@ -37,6 +37,8 @@ class RCNN(Model):
     def __init__(self, nn_module, args):
         self.device = "cpu"
         self.is_data_parallel = False
+        self.min_size = args.min_size
+        self.max_size = args.max_size
         backbone_grad = is_backbone_grad(args.lr)
         print("training backbone", backbone_grad)
         nn_module.backbone.requires_grad_(backbone_grad)
@@ -97,10 +99,23 @@ class RCNN(Model):
         res = np.concatenate([true, pred], axis=1).transpose((0, 3, 1, 2))
         return (res * 255).astype("uint8")
 
+    def load(self, path):
+        print(f"loading {path}")
+        state_dict_old = self.nn_module.state_dict()
+        state_dict = torch.load(path, map_location=lambda storage, _: storage)
+        for (k_old, v_old), v in zip(state_dict_old.items(), state_dict.values()):
+            if not v_old.size() == v.size():
+                print("Load: size mismatch, skipping layer,", k_old)
+                print(v_old.size(), "!=", v.size())
+                state_dict.update({k_old: v_old})
+            else:
+                pass
+        self.nn_module.load_state_dict(state_dict)
+
 
 class FasterRCNN(RCNN):
-    def __init__(self, args):
-        self.num_classes = args.num_classes
+    def __init__(self, args, num_classes=None):
+        self.num_classes = num_classes if num_classes is not None else args.num_classes
         nn_module = fasterrcnn_resnet50_fpn(
             pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
         )
@@ -112,14 +127,18 @@ class FasterRCNN(RCNN):
 
 
 class MaskRCNN(RCNN):
-    def __init__(self, args):
-        nc = args.num_classes
+    def __init__(self, args, num_classes=None):
+        self.num_classes = num_classes if num_classes is not None else args.num_classes
         nn_module = maskrcnn_resnet50_fpn(
             pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
         )
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
-        nn_module.roi_heads.box_predictor = FastRCNNPredictor(in_features, nc)
+        nn_module.roi_heads.box_predictor = FastRCNNPredictor(
+            in_features, self.num_classes
+        )
         in_features_mask = nn_module.roi_heads.mask_predictor.conv5_mask.in_channels
         nh = 256
-        nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(in_features_mask, nh, nc)
+        nn_module.roi_heads.mask_predictor = MaskRCNNPredictor(
+            in_features_mask, nh, self.num_classes
+        )
         super().__init__(nn_module, args)

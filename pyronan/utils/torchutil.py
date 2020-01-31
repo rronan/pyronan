@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 
-from pyronan.utils.misc import checkpoint
+from pyronan.utils.misc import args2dict, checkpoint
 
 
 def set_seed(seed, gpu):
@@ -38,6 +38,7 @@ class Callback:
         self.is_graph_written = False
         if getattr(args, "tensorboard", False):
             self.tensorboard = SummaryWriter(log_dir=args.checkpoint)
+            self.tensorboard.add_text("args", str(args2dict(args)))
 
     def add_scalar_dict(self, loss_dict, set_):
         if self.tensorboard is not None:

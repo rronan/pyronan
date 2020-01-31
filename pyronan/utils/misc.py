@@ -118,20 +118,25 @@ def tostring(v):
     return v
 
 
-def save_args(path, args, zf=None):
+def args2dict(args):
     args_copy = copy(args)
     for k, v in vars(args_copy).items():
         if type(v) is list:
             vars(args_copy)[k] = [tostring(w) for w in v]
         else:
             vars(args_copy)[k] = tostring(v)
+    return vars(args_copy)
+
+
+def save_args(path, args, zf=None):
+    args_dict = args2dict(args)
     if zf is None:
         with open(path, "w") as f:
-            json.dump(vars(args_copy), f, indent=4, sort_keys=True)
+            json.dump(args_dict, f, indent=4, sort_keys=True)
     else:
         zf.writestr(
             str(path).replace("/", "\\"),
-            json.dumps(vars(args_copy), indent=4, sort_keys=True),
+            json.dumps(args_dict, indent=4, sort_keys=True),
         )
 
 

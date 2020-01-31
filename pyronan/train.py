@@ -22,14 +22,14 @@ parser_train.add_argument("--subcheck", type=int, default=None)
 parser_train.add_argument("--tensorboard", action="store_true")
 
 
-def process_batch(model, batch, loss, set_, j):
-    res = model.step(batch, set_)
-    for key, value in res.items():
+def process_batch(model, batch, loss_avg, set_, j):
+    loss = model.step(batch, set_)
+    for key, value in loss.items():
         try:
-            loss[key] = (loss[key] * (j - 1) + value) / j
+            loss_avg[key] = (loss_avg[key] * (j - 1) + value) / j
         except KeyError:
-            loss[key] = value
-    return loss
+            loss_avg[key] = value
+    return loss, loss_avg
 
 
 def _loss2str(set_, i, n, loss, verbose):
@@ -42,12 +42,12 @@ def _loss2str(set_, i, n, loss, verbose):
 
 
 def process_epoch(model, set_, loader, log, i, n, verbose, callback):
-    loss = {}
+    loss_avg = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
     for j, batch in enumerate(pbar, 1):
-        loss = process_batch(model, batch, loss, set_, j)
-        pbar.set_description(_loss2str(set_, i, n, loss, verbose))
-        for key, value in loss.items():
+        loss, loss_avg = process_batch(model, batch, loss_avg, set_, j)
+        pbar.set_description(_loss2str(set_, i, n, loss_avg, verbose))
+        for key, value in loss_avg.items():
             log[i][f"{set_}_{key}"] = value
         callback.add_scalar_dict(loss, set_)
         if callback.interval is not None and j % callback.interval == 0:
