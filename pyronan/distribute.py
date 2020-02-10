@@ -3,13 +3,14 @@ import itertools
 import logging
 import os
 import time
+import traceback
 from collections import OrderedDict
 from copy import copy
 from pathlib import Path
 from pydoc import locate
 
 import yaml
-from dask.distributed import Client
+from dask.distributed import Client, as_completed
 from dask_jobqueue import SGECluster
 
 from pyronan.utils.misc import append_timestamp
@@ -93,26 +94,13 @@ def make_opt_list(config, merge_names):
     return res
 
 
-def submit(cluster, config, merge_names, preview):
+def submit(cluster, config, merge_names):
     client = Client(cluster)
-
-    def func(opt):
-        return locate(config["function"])(opt)
-
     opt_list = make_opt_list(config, merge_names)
-    res = []
-    for opt in opt_list:
-        print(opt)
-        if not preview:
-            res.append({"future": client.submit(func, opt), "opt": opt})
-    return res
-
-
-def is_running(job_list):
-    for job in job_list:
-        if job["future"].status in ["pending", "running"]:
-            return True
-    return False
+    print(opt_list)
+    func = locate(config["function"])
+    future_list = client.map(func, opt_list)
+    return opt_list, future_list
 
 
 def parse_args():
@@ -121,9 +109,6 @@ def parse_args():
     parser.add_argument("--exclude_nodes", nargs="+", default=[])
     parser.add_argument(
         "--log_dir", type=Path, default=os.environ.get("PYRONAN_LOG_DIR")
-    )
-    parser.add_argument(
-        "--html_dir", type=Path, default=os.environ.get("PYRONAN_HTML_DIR")
     )
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=32)
@@ -135,13 +120,10 @@ def parse_args():
     parser.add_argument("--ncpus", type=int, default=4)
     parser.add_argument("--ngpus", type=int, default=1)
     parser.add_argument("--jobs", type=int, default=1)
-    parser.add_argument("--wait", type=int, default=30)
     parser.add_argument(
         "--spill_dir", type=Path, default="/sequoia/data2/rriochet/dask", help="scratch"
     )
-    parser.add_argument("--make_html", action="store_true")
     parser.add_argument("--merge_names", action="store_true")
-    parser.add_argument("--preview", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -152,20 +134,25 @@ def main():
     config = make_config(args.config_path)
     print(config["name"])
     cluster = init_cluster(config["name"], args)
-    job_list = submit(cluster, config, args.merge_names, args.preview)
+    opt_list, future_list = submit(cluster, config, args.merge_names)
     logging.info(cluster.job_script())
     print(f'cat {args.log_dir}/{config["name"]}.o*')
     print(f'cat {args.log_dir}/{config["name"]}.e*')
-    while is_running(job_list):
-        time.sleep(args.wait)
-        if args.make_html:
-            from pyronan.utils.html_results import make_html
-
-            make_html(
-                config,
-                sorted([jb["opt"] for jb in job_list], key=lambda x: x.name),
-                args.html_dir / "results",
-            )
+    # while True:
+    #     print(future_list)
+    #     time.sleep(3)
+    try:
+        for future in as_completed(future_list):
+            pass
+    except KeyboardInterrupt:
+        for future in future_list:
+            future.cancel()
+    finally:
+        c = 0
+        for future in future_list:
+            print("*" * 89, "\n", opt_list[c], "\n")
+            traceback.print_tb(future.traceback())
+            c += 1
 
 
 if __name__ == "__main__":
