@@ -34,6 +34,7 @@ def init_cluster(name, args):
         "export NUMEXPR_NUM_THREADS=1",
         "export OMP_NUM_THREADS=1",
         "export DISABLE_MP_CACHE=1",
+        "export TORCH_HOME=/sequoia/data1/rriochet/.torch",
     ]
     for var in args.export_var:
         env_extra.append(f'export {var}="{os.environ[var]}"')

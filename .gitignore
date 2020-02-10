@@ -7,3 +7,5 @@ pyronan.egg-info/
 examples/mask_rcnn/checkpoints/
 examples/mask_rcnn/runs/
 examples/unet/sweeps/
+examples/mask_rcnn/inference/
+examples/mask_rcnn/inference.bak/

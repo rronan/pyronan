@@ -1,4 +1,5 @@
 import random
+import time
 
 import h5py
 import torch
@@ -29,29 +30,50 @@ def fillnan(tensor):
 
 
 class Callback:
-    def __init__(self, model, args):
+    def __init__(self, model=None, args=None):
         self.model = model
         self.args = args
-        self.interval = getattr(args, "subcheck")
+        self.chkpt_interval = getattr(args, "subcheck")
+        self.image_interval = getattr(args, "image_interval")
         self.step = 0
         self.tensorboard = None
         self.is_graph_written = False
+        self.log = []
         if getattr(args, "tensorboard", False):
             self.tensorboard = SummaryWriter(log_dir=args.checkpoint)
             self.tensorboard.add_text("args", str(args2dict(args)))
 
-    def add_scalar_dict(self, loss_dict, set_):
-        if self.tensorboard is not None:
-            for key, value in loss_dict.items():
-                self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
+    def start_epoch(self, i):
+        self.t0 = time.time()
+        self.log.append({"epoch": i})
 
-    def checkpoint(self, epoch, log, tag=""):
-        checkpoint(f"{epoch:03d}_{tag}", log, model=self.model, args=self.args)
+    def end_epoch(self, i):
+        self.log[i]["lr"] = self.model.get_lr()
+        self.log[i]["time"] = time.strftime(
+            "%H:%M:%S", time.gmtime(time.time() - self.t0)
+        )
+        checkpoint(f"{i:04d}", self.log, model=self.model, args=self.args)
+        return self.log[i]
+
+    def batch(self, loss, set_, i, j):
+        for key, value in loss.items():
+            self.log[i][f"{set_}_{key}"] = value
         if self.tensorboard is not None:
+            for key, value in loss.items():
+                self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
+        if (
+            self.chkpt_interval is not None
+            and j % self.chkpt_interval == 0
+            and set_ == "train"
+        ):
+            self.checkpoint(i, self.log, f"{set_}_{j}")
+        if (
+            self.image_interval is not None
+            and j % self.image_interval[set_] == 0
+            and self.tensorboard is not None
+        ):
             if hasattr(self.model, "get_image"):
-                self.tensorboard.add_images(
-                    f"im_{tag}", self.model.get_image(0.3), epoch
-                )
+                self.tensorboard.add_images(f"im_{set_}", self.model.get_image(0.3), i)
             self.add_graph()
             self.tensorboard.flush()
 
