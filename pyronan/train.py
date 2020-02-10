@@ -36,19 +36,14 @@ def _loss2str(set_, i, n, loss, verbose):
     return x
 
 
-def process_epoch(model, set_, loader, log, i, n, verbose, callback):
-    loss_avg = {}
+def process_epoch(model, set_, loader, i, n, verbose, callback):
+    loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
     for j, batch in enumerate(pbar, 1):
-        loss, loss_avg = process_batch(model, batch, loss_avg, set_, j)
-        pbar.set_description(_loss2str(set_, i, n, loss_avg, verbose))
-        for key, value in loss_avg.items():
-            log[i][f"{set_}_{key}"] = value
-        callback.add_scalar_dict(loss, set_)
-        if callback.interval is not None and j % callback.interval == 0:
-            callback.checkpoint(i, log, f"{set_}_{j}")
-        callback.step += 1
-    return log
+        loss = process_batch(model, batch, loss, set_, j)
+        pbar.set_description(_loss2str(set_, i, n, loss, verbose))
+        callback.step(loss, set_, i, j)
+    return loss
 
 
 class DummyCallback(Nop):
@@ -57,16 +52,12 @@ class DummyCallback(Nop):
 
 
 def trainer(model, loader_dict, train_epochs, verbose=True, callback=DummyCallback):
-    log = []
     for i in range(train_epochs):
-        t0 = time.time()
-        log.append({"epoch": i})
+        callback.start_epoch(i)
         for set_, loader in loader_dict.items():
-            process_epoch(model, set_, loader, log, i, train_epochs, verbose, callback)
-        log[i]["lr"] = model.get_lr()
-        log[i]["time"] = time.strftime("%H:%M:%S", time.gmtime(time.time() - t0))
-        callback.checkpoint(i, log, f"{set_}_last")
-        print(log[i])
-        model.lr_scheduler.step(log[-1]["val_loss"])
-        if model.get_lr() < 5e-8 or math.isnan(log[-1]["train_loss"]):
+            process_epoch(model, set_, loader, i, train_epochs, verbose, callback)
+        log = callback.epoch(i)
+        print(log)
+        model.lr_scheduler.step(log["val_loss"])
+        if model.get_lr() < 5e-8 or math.isnan(log["train_loss"]):
             break
