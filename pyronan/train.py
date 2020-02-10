@@ -66,10 +66,10 @@ class Callback:
                 self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
         if (
             self.chkpt_interval is not None
-            and j % self.chkpt_interval == 0
+            and self.step % self.chkpt_interval == 0
             and set_ == "train"
         ):
-            self.checkpoint(i, self.log, f"{set_}_{j}")
+            self.checkpoint(i, self.log, f"{set_}_step_{self.step}")
         if (
             self.image_interval[set_] is not None
             and j % self.image_interval[set_] == 0
@@ -78,6 +78,7 @@ class Callback:
         ):
             self.tensorboard.add_images(f"im_{set_}_{j}", self.model.get_image(0.3), i)
             self.tensorboard.flush()
+        self.step += 1
         return self.log[i]
 
     def add_graph(self, overwrite=False):
