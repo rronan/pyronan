@@ -1,3 +1,4 @@
+import json
 import random
 
 import h5py
@@ -38,7 +39,9 @@ class Callback:
         self.is_graph_written = False
         if getattr(args, "tensorboard", False):
             self.tensorboard = SummaryWriter(log_dir=args.checkpoint)
-            self.tensorboard.add_text("args", str(args2dict(args)))
+            self.tensorboard.add_text(
+                "args", json.dumps(args2dict(args), sort_keys=True, indent=4)
+            )
 
     def add_scalar_dict(self, loss_dict, set_):
         if self.tensorboard is not None:

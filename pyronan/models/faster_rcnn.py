@@ -77,11 +77,11 @@ class RCNN(Model):
         images, true_boxes, true_labels, pred_boxes, pred_labels = [], [], [], [], []
         for image, target, prediction in zip(*self.batch, predictions):
             images.append(image.numpy().transpose((1, 2, 0)))
-            c = target["labels"].detach().cpu().numpy() != (self.num_classes - 1)
+            c = target["labels"].detach().cpu().numpy() != 0
             true_boxes.append(target["boxes"].numpy()[c].tolist())
             true_labels.append(target["labels"].numpy()[c].tolist())
             c = prediction["scores"].detach().cpu().numpy() > cutoff
-            c *= prediction["labels"].detach().cpu().numpy() != (self.num_classes - 1)
+            c *= prediction["labels"].detach().cpu().numpy() != 0
             pred_boxes.append(prediction["boxes"].detach().cpu().numpy()[c].tolist())
             pred_labels.append(prediction["labels"].detach().cpu().numpy()[c].tolist())
         true = list(map(draw, zip(images, true_boxes, true_labels)))
