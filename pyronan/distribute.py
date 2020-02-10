@@ -128,6 +128,12 @@ def parse_args():
     return args
 
 
+def log(opt, future):
+    print("*" * 89, "\n", opt)
+    exception = future.exception()
+    traceback.print_exception(type(exception), exception, future.traceback())
+
+
 def main():
     args = parse_args()
     logging.info(args)
@@ -138,21 +144,17 @@ def main():
     logging.info(cluster.job_script())
     print(f'cat {args.log_dir}/{config["name"]}.o*')
     print(f'cat {args.log_dir}/{config["name"]}.e*')
-    # while True:
-    #     print(future_list)
-    #     time.sleep(3)
     try:
-        for future in as_completed(future_list):
-            pass
+        c = -1  # defining variable to be use in the finally
+        for c, future in enumerate(as_completed(future_list)):
+            log(opt_list[c], future)
     except KeyboardInterrupt:
+        print("*" * 89, "\n\nKeyboardInterrupt\n\n", "*" * 89)
         for future in future_list:
             future.cancel()
     finally:
-        c = 0
-        for future in future_list:
-            print("*" * 89, "\n", opt_list[c], "\n")
-            traceback.print_tb(future.traceback())
-            c += 1
+        for opt, future in zip(opt_list[c + 1 :], future_list[c + 1 :]):
+            log(opt, future)
 
 
 if __name__ == "__main__":
