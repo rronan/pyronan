@@ -122,7 +122,7 @@ def trainer(model, loader_dict, train_epochs, verbose=True, callback=Callback())
         callback.start_epoch(i)
         for set_, loader in loader_dict.items():
             process_epoch(model, set_, loader, i, train_epochs, verbose, callback)
-        log = callback.epoch(i)
+        log = callback.end_epoch(i)
         print(log)
         model.lr_scheduler.step(log["val_loss"])
         if model.get_lr() < 5e-8 or math.isnan(log["train_loss"]):
