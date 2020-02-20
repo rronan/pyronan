@@ -8,6 +8,7 @@ from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
+from apex import amp
 from pyronan.utils.misc import Nop
 
 
@@ -27,9 +28,10 @@ parser_model.add_argument("--weight_decay", type=float, default=0)
 parser_model.add_argument("--load", type=Path, default=None)
 parser_model.add_argument("--data_parallel", action="store_true")
 parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
+parser_model.add_argument("--amp_level", choices=["O0", "O1", "O2", "O3"], default=None)
 
 
-def make_model(Model, args, gpu=False, data_parallel=False, load=None):
+def make_model(Model, args, gpu=False, data_parallel=False, load=None, amp_level=None):
     if type(Model) is str:
         print("importing", Model)
         Model = locate(Model)
@@ -41,6 +43,8 @@ def make_model(Model, args, gpu=False, data_parallel=False, load=None):
         print("Training on", torch.cuda.device_count(), "GPUs!")
     if gpu:
         model.gpu()
+    if amp_level is not None:
+        model.amp(amp_level)
     print(f"n parameters: {model.get_num_parameters()}")
     return model
 
@@ -52,6 +56,7 @@ class Model:
             args_optim = parser_model.parse_args()
         self.device = "cpu"
         self.is_data_parallel = False
+        self.amp = False
         self.nn_module = nn_module
         if nn_module is None:
             self.optimizer = None
@@ -84,7 +89,11 @@ class Model:
 
     def update(self, loss):
         self.nn_module.zero_grad()
-        loss.backward()
+        if self.amp:
+            with amp.scale_loss(loss, self.optimizer) as scaled_loss:
+                scaled_loss.backward()
+        else:
+            loss.backward()
         if self.grad_clip is not None:
             clip_grad_norm_(self.nn_module.parameters(), self.grad_clip)
         self.optimizer.step()
@@ -133,6 +142,12 @@ class Model:
     def data_parallel(self):
         self.nn_module = nn.DataParallel(self.nn_module)
         self.is_data_parallel = True
+
+    def amp(self, amp_level):
+        self.nn_module, self.optimizer = amp.initialize(
+            self.nn_module, self.optimizer, opt_level=amp_level
+        )
+        self.amp = True
 
     def get_lr(self):
         if self.optimizer is not None:
