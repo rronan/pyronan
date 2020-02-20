@@ -22,24 +22,21 @@ from argparse import ArgumentParser
 
 from torch.utils.data import DataLoader
 
-from pyronan.model import parser_model
-from pyronan.train import trainer, parser_train
-from pyronan.utils.misc import append_timestamp, checkpoint
+from pyronan.utils.parser import parser as parser_base
+from pyronan.model import parser_model, make_model
+from pyronan.train import Callback, parser_train, trainer
 
 
-parser = ArgumentParser(parents=[parser_model, parser_optim])
-parser.add_argument("--name", type=append_timestamp, default='')
+parser = ArgumentParser(parents=[parser_model, parser_train, parser_base])
 args = parser.parse_args()
-args.checkpoint /= args.name
 
 
 loader_dict = {
-    'train': DataLoader(MyDataset_train, args.bsz, args.num_workers)
-    'val': DataLoader(MyDataset_val, args.bsz, args.num_workers)
+    'train': DataLoader(MyDataset_train, args.batch_size, args.num_workers)
+    'val': DataLoader(MyDataset_val, args.batch_size, args.num_workers)
 }
 model = MyModel()
-checkpoint_func = partial(checkpoint, model=model, args=args)
-
-trainer(model, loader_dict, args.n_epochs, checkpoint_func)
+callback = Callback(model, args)
+trainer(model, loader_dict, args.train_epochs, callback)
 ```
 
