@@ -2,43 +2,19 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torchvision
-from PIL import ImageDraw
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from pyronan.model import Model
-from pyronan.utils.image import COLOR_LIST, ti, tis
+from pyronan.models.utils import draw, draw_batch, is_backbone_grad
 
-torch.multiprocessing.set_sharing_strategy("file_system")
-
-
-def is_backbone_grad(lr):
-    for kv in lr:
-        if type(kv) is float:
-            return True
-        else:
-            if kv[0] == "backbone":
-                return True
-    return False
-
-
-def draw(args):
-    image_array, boxes, labels = args
-    im = ti(image_array)
-    draw = ImageDraw.Draw(im)
-    for box, label in zip(boxes, labels):
-        if label != 1:
-            assert label != 0
-            draw.rectangle(box, outline=tuple(COLOR_LIST[label]))
-    return np.array(im)
+# torch.multiprocessing.set_sharing_strategy("file_system")
 
 
 class RCNN(Model):
     def __init__(self, nn_module, args):
         self.nms_iou = getattr(args, "nms_iou", None)
-        self.device = "cpu"
-        self.is_data_parallel = False
         self.min_size = args.min_size
         self.max_size = args.max_size
         backbone_grad = is_backbone_grad(args.lr)
@@ -54,12 +30,8 @@ class RCNN(Model):
         self.batch = batch
         images, targets = [], []
         for image, target in zip(*batch):
-            if len(target["boxes"]) == 0:
-                continue
             images.append(image.to(self.device))
             targets.append({k: v.to(self.device) for k, v in target.items()})
-        if len(images) == 0:
-            return {"loss": 0}
         loss_dict = self.nn_module(images, targets)
         loss = sum(loss for loss in loss_dict.values())
         if set_ == "train":
@@ -74,32 +46,7 @@ class RCNN(Model):
         self.nn_module.eval()
         predictions = self.nn_module([x.to(self.device) for x in self.batch[0]])
         self.nn_module.train()
-        images, true_boxes, true_labels, pred_boxes, pred_labels = [], [], [], [], []
-        for image, target, prediction in zip(*self.batch, predictions):
-            images.append(image.numpy().transpose((1, 2, 0)))
-            c = target["labels"].detach().cpu().numpy() != 0
-            true_boxes.append(target["boxes"].numpy()[c].tolist())
-            true_labels.append(target["labels"].numpy()[c].tolist())
-            c = prediction["scores"].detach().cpu().numpy() > cutoff
-            c *= prediction["labels"].detach().cpu().numpy() != 0
-            pred_boxes.append(prediction["boxes"].detach().cpu().numpy()[c].tolist())
-            pred_labels.append(prediction["labels"].detach().cpu().numpy()[c].tolist())
-        true = list(map(draw, zip(images, true_boxes, true_labels)))
-        pred = list(map(draw, zip(images, pred_boxes, pred_labels)))
-        max_size = [max([true[0].shape[i], true[1].shape[i]]) for i in [0, 1]]
-        p = [[max_size[i] - x.shape[i] for i in [0, 1]] for x in true]
-        true = [
-            np.pad(true[i], pad_width=((0, p[i][0]), (0, p[i][1]), (0, 0)))
-            for i in [0, 1]
-        ]
-        true = np.array(true)
-        pred = [
-            np.pad(pred[i], pad_width=((0, p[i][0]), (0, p[i][1]), (0, 0)))
-            for i in [0, 1]
-        ]
-        pred = np.array(pred)
-        res = np.concatenate([true, pred], axis=1).transpose((0, 3, 1, 2))
-        return (res * 255).astype("uint8")
+        return draw_batch(self.batch, predictions, cutoff)
 
     def __call__(self, x):
         y = self.nn_module(x)

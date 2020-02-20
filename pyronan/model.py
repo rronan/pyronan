@@ -11,16 +11,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from apex import amp
 from pyronan.utils.misc import Nop
 
-
-def parse_lr(kv_str):
-    kv = kv_str.split(":")
-    kv[-1] = float(kv[-1])
-    return kv
-
-
 parser_model = ArgumentParser(add_help=False)
 parser_model.add_argument("--grad_clip", type=float, default=None)
-parser_model.add_argument("--lr", nargs="+", type=parse_lr, default=[1e-3])
+parser_model.add_argument(
+    "--lr", nargs="+", type=lambda x: x.split(":"), default=[1e-3]
+)
 parser_model.add_argument("--lr_decay", type=float, default=0.1)
 parser_model.add_argument("--lr_patience", type=int, default=10)
 parser_model.add_argument("--optimizer", default="Adam")
@@ -50,46 +45,46 @@ def make_model(Model, args, gpu=False, data_parallel=False, load=None, amp_level
 
 
 class Model:
-    def __init__(self, nn_module=None, args_optim=None):
+    def __init__(self, nn_module=None, args=None):
         super().__init__()
-        if args_optim is None:
-            args_optim = parser_model.parse_args()
+        if args is None:
+            args = parser_model.parse_args()
         self.device = "cpu"
         self.is_data_parallel = False
-        self.amp = False
+        self.is_amp = False
         self.nn_module = nn_module
         if nn_module is None:
             self.optimizer = None
             self.lr_scheduler = Nop
         else:
-            self.set_optim(args_optim)
+            self.set_optim(args)
 
     @staticmethod
     def _lr_arg(nn_module, kv):
         if type(kv) is float:
             return {"params": nn_module.parameters(), "lr": kv}
-        return {"params": getattr(nn_module, kv[0]).parameters(), "lr": kv[1]}
+        if len(kv) == 1:
+            return {"params": nn_module.parameters(), "lr": float(kv[0])}
+        return {"params": getattr(nn_module, kv[0]).parameters(), "lr": float(kv[1])}
 
-    def set_optim(self, args_optim):
-        self.grad_clip = args_optim.grad_clip
-        if type(args_optim.lr) is float:
-            args_optim.lr = [args_optim.lr]
-        lr = [self._lr_arg(self.nn_module, kv) for kv in args_optim.lr]
+    def set_optim(self, args):
+        self.grad_clip = args.grad_clip
+        lr = [self._lr_arg(self.nn_module, kv) for kv in args.lr]
         kwargs = {}
-        if args_optim.weight_decay is not None:
-            kwargs["weight_decay"] = args_optim.weight_decay
-        self.optimizer = getattr(optim, args_optim.optimizer)(lr, **kwargs)
+        if args.weight_decay is not None:
+            kwargs["weight_decay"] = args.weight_decay
+        self.optimizer = getattr(optim, args.optimizer)(lr, **kwargs)
         self.lr_scheduler = ReduceLROnPlateau(
             self.optimizer,
-            patience=args_optim.lr_patience,
-            factor=args_optim.lr_decay,
+            patience=args.lr_patience,
+            factor=args.lr_decay,
             verbose=True,
             eps=1e-9,
         )
 
     def update(self, loss):
         self.nn_module.zero_grad()
-        if self.amp:
+        if self.is_amp:
             with amp.scale_loss(loss, self.optimizer) as scaled_loss:
                 scaled_loss.backward()
         else:
@@ -147,7 +142,7 @@ class Model:
         self.nn_module, self.optimizer = amp.initialize(
             self.nn_module, self.optimizer, opt_level=amp_level
         )
-        self.amp = True
+        self.is_amp = True
 
     def get_lr(self):
         if self.optimizer is not None:

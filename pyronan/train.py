@@ -10,7 +10,7 @@ from pyronan.utils.misc import args2dict, checkpoint
 
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--train_epochs", type=int, default=200)
-parser_train.add_argument("--bsz", type=int, help="batch size")
+parser_train.add_argument("--batch_size", type=int, help="batch size")
 parser_train.add_argument("--num_workers", type=int, default=20)
 parser_train.add_argument("--pin_memory", action="store_true")
 parser_train.add_argument("--save_all", action="store_true")
@@ -63,7 +63,7 @@ class Callback:
                 self.log[i][f"{set_}_{key}"] /= j
         if self.tensorboard is not None:
             for key, value in loss.items():
-                self.tensorboard.add_scalar(f"{set_}_{key}", value, self.step)
+                self.tensorboard.add_scalar(f"{key}/{set_}", value, self.step)
         if (
             self.chkpt_interval is not None
             and self.step % self.chkpt_interval == 0
@@ -117,7 +117,7 @@ def process_epoch(model, set_, loader, i, n, verbose, callback):
     return loss
 
 
-def trainer(model, loader_dict, train_epochs, verbose=True, callback=Callback()):
+def trainer(model, loader_dict, train_epochs, callback=Callback(), verbose=True):
     for i in range(train_epochs):
         callback.start_epoch(i)
         for set_, loader in loader_dict.items():
