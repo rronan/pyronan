@@ -76,7 +76,7 @@ class Callback:
             and self.tensorboard is not None
             and hasattr(self.model, "get_image")
         ):
-            self.tensorboard.add_images(f"im_{set_}_{j}", self.model.get_image(0.3), i)
+            self.tensorboard.add_images(f"{set_}_{j}", self.model.get_image(0.3), i)
             self.tensorboard.flush()
         self.step += 1
         return self.log[i]

@@ -44,16 +44,19 @@ class RetinaNet(Model):
 
     def get_image(self, cutoff=0):
         self.nn_module.eval()
-        instances_list = self.nn_module(self.batch)
-        predictions = []
-        for instances in instances_list:
-            instances = instances["instances"].to("cpu")
+        preds = self.nn_module(self.batch)
+        images, targets, predictions = [], [], []
+        for x, pred in zip(self.batch, preds):
+            images.append(x["image"])
+            targets.append(
+                {"labels": x["instances"].gt_classes, "boxes": x["instances"].gt_boxes}
+            )
             predictions.append(
                 {
-                    "labels": instances.pred_classes.numpy(),
-                    "scores": instances.scores.detach().numpy(),
-                    "boxes": instances.pred_boxes.numpy(),
+                    "labels": pred["instances"].pred_classes,
+                    "scores": pred["instances"].scores,
+                    "boxes": pred["instances"].pred_boxes,
                 }
             )
         self.nn_module.train()
-        return draw_batch(self.batch, predictions, cutoff)
+        return draw_batch(images, targets, predictions, cutoff)
