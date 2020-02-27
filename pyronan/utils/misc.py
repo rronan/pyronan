@@ -10,8 +10,11 @@ from functools import wraps
 from tqdm import tqdm
 
 
-class Nop:
-    def nop(*args, **kw):
+class Nop(object):
+    def __init__(self):
+        pass
+
+    def nop(self, *foo, **bar):
         pass
 
     def __getattr__(self, _):
@@ -29,6 +32,20 @@ def tqdm_(x, *args, **kwargs):
     if os.environ.get("DISABLE_TQDM"):
         return x
     return tqdm(x, *args, **kwargs, dynamic_ncols=True)
+
+
+def debug(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if os.environ.get("PYRONAN_DEBUG"):
+            return func(*args, **kwargs)
+        try:
+            func(*args, **kwargs)
+        except Exception as e:
+            print(e)
+            __import__("pdb").set_trace()
+
+    return wrapper
 
 
 def init_shared_dict():

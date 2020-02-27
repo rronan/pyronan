@@ -45,3 +45,13 @@ def load_from_keras(self, h5_path):
         print("test failed: ", w.value)
     except Exception:
         print("success, number of parameters copied: %d" % numel)
+
+
+def is_backbone_grad(lr):
+    for kv in lr:
+        if type(kv) is float:
+            return True
+        else:
+            if kv[0] == "backbone":
+                return True
+    return False

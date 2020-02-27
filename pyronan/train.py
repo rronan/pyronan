@@ -1,8 +1,11 @@
+import gc
 import json
+import logging
 import math
 import time
 from argparse import ArgumentParser
 
+from pympler.tracker import SummaryTracker
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
@@ -18,6 +21,7 @@ parser_train.add_argument("--save_last", action="store_true")
 parser_train.add_argument("--chkpt_interval", type=int, default=None)
 parser_train.add_argument("--image_interval_val", type=int, default=None)
 parser_train.add_argument("--image_interval_train", type=int, default=None)
+parser_train.add_argument("--gc_collect_interval", type=int, default=None)
 parser_train.add_argument("--tensorboard", action="store_true")
 
 
@@ -30,7 +34,9 @@ class Callback:
             set_: getattr(args, f"image_interval_{set_}", None)
             for set_ in ["train", "val"]
         }
+        self.gc_collect_interval = getattr(args, "gc_collect_interval", None)
         self.step = 0
+        self.cutoff = getattr(args, "cutoff", 0)
         self.tensorboard = None
         self.is_graph_written = False
         self.log = []
@@ -49,6 +55,7 @@ class Callback:
         self.log[i]["time"] = time.strftime(
             "%H:%M:%S", time.gmtime(time.time() - self.t0)
         )
+        logging.info(f"saving checkpoint to {self.args.checkpoint}")
         checkpoint(f"{i:04d}", self.log, model=self.model, args=self.args)
         self.add_graph()
         return self.log[i]
@@ -76,8 +83,14 @@ class Callback:
             and self.tensorboard is not None
             and hasattr(self.model, "get_image")
         ):
-            self.tensorboard.add_images(f"{set_}_{j}", self.model.get_image(0.3), i)
+            self.tensorboard.add_images(
+                f"{set_}/{j}", self.model.get_image(self.cutoff), i
+            )
             self.tensorboard.flush()
+        if self.gc_collect_interval is not None and j % self.gc_collect_interval == 0:
+            if self.tensorboard is not None:
+                self.tensorboard.flush()
+            gc.collect()
         self.step += 1
         return self.log[i]
 
@@ -110,10 +123,12 @@ def loss2str(set_, i, n, loss, verbose):
 def process_epoch(model, set_, loader, i, n, verbose, callback):
     loss = {}
     pbar = tqdm(loader, dynamic_ncols=True, leave=False)
+    # tracker = SummaryTracker()
     for j, batch in enumerate(pbar, 1):
         loss = model.step(batch, set_)
         loss_avg = callback.batch(loss, set_, i, j)
         pbar.set_description(loss2str(set_, i, n, loss_avg, verbose))
+    # tracker.print_diff()
     return loss
 
 

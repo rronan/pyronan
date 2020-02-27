@@ -1,5 +1,4 @@
 import numpy as np
-import torch
 import torch.nn as nn
 import torchvision
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
@@ -7,9 +6,8 @@ from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 from pyronan.model import Model
-from pyronan.models.utils import draw, draw_batch, is_backbone_grad
-
-# torch.multiprocessing.set_sharing_strategy("file_system")
+from pyronan.utils.draw import draw_detection_batch
+from pyronan.utils.torchutil import is_backbone_grad
 
 
 class RCNN(Model):
@@ -46,7 +44,7 @@ class RCNN(Model):
         self.nn_module.eval()
         predictions = self.nn_module([x.to(self.device) for x in self.batch[0]])
         self.nn_module.train()
-        return draw_batch(self.batch, predictions, cutoff)
+        return draw_detection_batch(*self.batch, predictions, cutoff)
 
     def __call__(self, x):
         y = self.nn_module(x)

@@ -45,17 +45,16 @@ def make_model(Model, args, gpu=False, data_parallel=False, load=None, amp_level
 
 
 class Model:
-    def __init__(self, nn_module=None, args=None):
+    def __init__(self, nn_module=None, args=parser_model.parse_args([])):
         super().__init__()
-        if args is None:
-            args = parser_model.parse_args()
         self.device = "cpu"
         self.is_data_parallel = False
         self.is_amp = False
         self.nn_module = nn_module
         if nn_module is None:
+            self.nn_module = nn.Module()
             self.optimizer = None
-            self.lr_scheduler = Nop
+            self.lr_scheduler = Nop()
         else:
             self.set_optim(args)
 
@@ -67,12 +66,32 @@ class Model:
             return {"params": nn_module.parameters(), "lr": float(kv[0])}
         return {"params": getattr(nn_module, kv[0]).parameters(), "lr": float(kv[1])}
 
+    @staticmethod
+    def _lr_arg_list(nn_module, lr):
+        if type(float) is float:
+            return [{"params": nn_module.parameters(), "lr": lr}]
+        return [Model._lr_arg(nn_module, kv) for kv in lr]
+
+    @staticmethod
+    def _check_parameter_lr(nn_module, lr):
+        if type(lr) is float:
+            return
+        assert type(lr) is list
+        num_param_total = sum([m.numel() for m in nn_module.parameters()])
+        submodules = [k for k, _ in lr]
+        num_param_list = [
+            sum([m.numel() for m in getattr(nn_module, x).parameters()])
+            for x in submodules
+        ]
+        assert num_param_total == sum(num_param_list)
+
     def set_optim(self, args):
         self.grad_clip = args.grad_clip
-        lr = [self._lr_arg(self.nn_module, kv) for kv in args.lr]
+        self._check_parameter_lr(self.nn_module, args.lr)
         kwargs = {}
         if args.weight_decay is not None:
             kwargs["weight_decay"] = args.weight_decay
+        lr = [self._lr_arg(self.nn_module, kv) for kv in args.lr]
         self.optimizer = getattr(optim, args.optimizer)(lr, **kwargs)
         self.lr_scheduler = ReduceLROnPlateau(
             self.optimizer,
@@ -148,7 +167,7 @@ class Model:
         if self.optimizer is not None:
             return self.optimizer.param_groups[0]["lr"]
         else:
-            return 0
+            return 1
 
     def get_num_parameters(self):
         return sum([m.numel() for m in self.nn_module.parameters()])
