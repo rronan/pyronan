@@ -77,6 +77,9 @@ class Model:
         if type(lr) is float:
             return
         assert type(lr) is list
+        if len(lr) == 1:
+            assert len(lr[0]) == 1
+            return
         num_param_total = sum([m.numel() for m in nn_module.parameters()])
         submodules = [k for k, _ in lr]
         num_param_list = [

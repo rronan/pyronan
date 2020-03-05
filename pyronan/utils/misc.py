@@ -1,7 +1,9 @@
 import argparse
+import inspect
 import json
 import os
 import pathlib
+import pdb
 import re
 import time
 from copy import copy
@@ -42,8 +44,11 @@ def debug(func):
         try:
             func(*args, **kwargs)
         except Exception as e:
-            print(e)
-            __import__("pdb").set_trace()
+            print(e, "\n", "*" * 80)
+            print("function:", inspect.getsource(func))
+            print("args:", args)
+            print("kwargs:", kwargs)
+            pdb.set_trace()
 
     return wrapper
 

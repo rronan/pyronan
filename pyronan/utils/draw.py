@@ -72,12 +72,14 @@ def fig2data(fig):
 def draw_detection(args):
     image_array, boxes, labels = args
     im = ti(image_array)
-    draw = ImageDraw.Draw(im)
+    draw = ImageDraw.Draw(im, "RGBA")
+    width = 5
     for box, label in zip(boxes, labels):
         if label != 0:
-            draw.rectangle(box, outline=tuple(COLOR_LIST[label]))
-            box_inner = [b + a for b, a in zip(box, [1, 1, -1, -1])]
-            draw.rectangle(box_inner, fill=None, outline=tuple(COLOR_LIST[label]))
+            for z in range(width):
+                x = [b + a for b, a in zip(box, [z, z, -z, -z])]
+                draw.rectangle(x, fill=None, outline=tuple(COLOR_LIST[label] + [128]))
+    # im = im.convert("RGB")
     return np.array(im)
 
 
@@ -85,9 +87,13 @@ def draw_detection_batch(images, targets, predictions, cutoff=0):
     image_list, true_boxes, true_labels, pred_boxes, pred_labels = [], [], [], [], []
     for image, target, prediction in zip(images, targets, predictions):
         image_list.append(image.numpy().transpose((1, 2, 0)))
-        c = target["labels"].detach().cpu().numpy() != 0
-        true_boxes.append(np.array([b.numpy() for b in target["boxes"]])[c].tolist())
-        true_labels.append(target["labels"].numpy()[c].tolist())
+        box, label = [], []
+        if len(target) > 0:
+            c = target["labels"].detach().cpu().numpy() != 0
+            box = np.array([b.numpy() for b in target["boxes"]])[c].tolist()
+            label = target["labels"].numpy()[c].tolist()
+        true_boxes.append(box)
+        true_labels.append(label)
         c = prediction["scores"].detach().cpu().numpy() > cutoff
         c *= prediction["labels"].detach().cpu().numpy() != 0
         pred_boxes_instance = [b.detach().cpu().numpy() for b in prediction["boxes"]]

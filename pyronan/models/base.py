@@ -9,10 +9,6 @@ class Base(Model):
         super().__init__()
 
     def step(self, batch, _):
-        batch = [
-            {k: v.to(self.device) for k, v in x.items() if k not in ["height", "width"]}
-            for x in batch
-        ]
         return {"loss": 0}
 
     def get_image(self, _):
