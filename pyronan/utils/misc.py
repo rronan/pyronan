@@ -11,6 +11,8 @@ from functools import wraps
 
 from tqdm import tqdm
 
+from pyronan.utils.misc import to_namespace
+
 
 class Nop(object):
     def __init__(self):
@@ -162,6 +164,20 @@ def save_args(path, args, zf=None):
         )
 
 
+def load_args(path, type_dict):
+    with open(str(path), "r") as f:
+        dict_ = json.load(f)
+    for k, v in dict_.items():
+        if type_dict[k] is not None:
+            if type(v) is list:
+                v = [type_dict[k](e) for e in v]
+            else:
+                v = type_dict[k](v)
+        dict_[k] = v
+    args = to_namespace(dict_)
+    return args
+
+
 def checkpoint(epoch, log, model=None, args=None, path=None):
     if path is None:
         path = pathlib.Path(args.checkpoint)
@@ -172,8 +188,7 @@ def checkpoint(epoch, log, model=None, args=None, path=None):
         json.dump(log, f, indent=4)
     if getattr(args, "save_all", False):
         model.save(path, epoch)
-    if getattr(args, "save_last", False):
-        model.save(path, "last")
+    model.save(path, "last")
     if "val_loss" in log[-1]:
         if log[-1]["val_loss"] == min([x["val_loss"] for x in log]):
             model.save(path, "best")

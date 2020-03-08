@@ -26,7 +26,9 @@ parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 parser_model.add_argument("--amp_level", choices=["O0", "O1", "O2", "O3"], default=None)
 
 
-def make_model(Model, args, gpu=False, data_parallel=False, load=None, amp_level=None):
+def make_model(
+    Model, args, gpu=False, data_parallel=False, load=None, amp_level=None,
+):
     if type(Model) is str:
         print("importing", Model)
         Model = locate(Model)
@@ -129,16 +131,18 @@ class Model:
 
     def load(self, path):
         print(f"loading {path}")
-        state_dict = torch.load(path, map_location=lambda storage, loc: storage)
-        state_dict = {k.replace(".module", "", 1): v for k, v in state_dict.items()}
-        self.nn_module.load_state_dict(state_dict)
+        chkpt = torch.load(path, map_location=self.device)
+        weights = {k.replace(".module", "", 1): v for k, v in chkpt["weights"].items()}
+        self.nn_module.load_state_dict(weights)
+        self.optimizer.load_state_dict(chkpt["optimizer"])
 
     def save(self, path, epoch):
         with open(path / f"{self.__class__.__name__}.txt", "w") as f:
             f.write(str(self))
         _state_dict = self.nn_module.state_dict()
-        state_dict = {k.replace(".module", "", 1): v for k, v in _state_dict.items()}
-        torch.save(state_dict, path / f"weights_{epoch}.pth")
+        weights = {k.replace(".module", "", 1): v for k, v in _state_dict.items()}
+        chkpt = {"weights": weights, "optimizer": self.optimizer.state_dict()}
+        torch.save(chkpt, path / f"chkpt_{epoch}.pth")
 
     def to_device(self, batch):
         if type(batch) is list:

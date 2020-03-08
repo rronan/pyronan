@@ -4,6 +4,7 @@ import logging
 import math
 import time
 from argparse import ArgumentParser
+from pathlib import Path
 
 from pympler.tracker import SummaryTracker
 from torch.utils.tensorboard import SummaryWriter
@@ -23,6 +24,7 @@ parser_train.add_argument("--image_interval_val", type=int, default=None)
 parser_train.add_argument("--image_interval_train", type=int, default=None)
 parser_train.add_argument("--gc_collect_interval", type=int, default=None)
 parser_train.add_argument("--tensorboard", action="store_true")
+parser_train.add_argument("--from_chkpt", type=Path, default=None)
 
 
 class Callback:
@@ -35,11 +37,18 @@ class Callback:
             for set_ in ["train", "val"]
         }
         self.gc_collect_interval = getattr(args, "gc_collect_interval", None)
-        self.step = 0
         self.cutoff = getattr(args, "cutoff", 0)
         self.tensorboard = None
         self.is_graph_written = False
-        self.log = []
+        if getattr(args, "step", None) is not None:
+            self.step = args.step
+        else:
+            self.step = 0
+        if getattr(args, "from_chkpt", None) is not None:
+            with open(args.from_chkpt / "log.json") as f:
+                self.log = json.load(f)
+        else:
+            self.log = []
         if getattr(args, "tensorboard", False):
             self.tensorboard = SummaryWriter(log_dir=getattr(args, "checkpoint", "."))
             self.tensorboard.add_text(
@@ -56,6 +65,7 @@ class Callback:
             "%H:%M:%S", time.gmtime(time.time() - self.t0)
         )
         logging.info(f"saving checkpoint to {self.args.checkpoint}")
+        setattr(self.args, "step", self.step)
         checkpoint(f"{i:04d}", self.log, model=self.model, args=self.args)
         self.add_graph()
         return self.log[i]
