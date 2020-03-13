@@ -24,11 +24,11 @@ parser_train.add_argument("--image_interval_val", type=int, default=None)
 parser_train.add_argument("--image_interval_train", type=int, default=None)
 parser_train.add_argument("--gc_collect_interval", type=int, default=None)
 parser_train.add_argument("--tensorboard", action="store_true")
-parser_train.add_argument("--from_chkpt", type=Path, default=None)
+parser_train.add_argument("--step", type=int, default=0)
 
 
 class Callback:
-    def __init__(self, model=None, args=None):
+    def __init__(self, model=None, args=None, from_chkpt=None):
         self.model = model
         self.args = args
         self.chkpt_interval = getattr(args, "chkpt_inverval", None)
@@ -40,53 +40,52 @@ class Callback:
         self.cutoff = getattr(args, "cutoff", 0)
         self.tensorboard = None
         self.is_graph_written = False
-        if getattr(args, "step", None) is not None:
-            self.step = args.step
-        else:
-            self.step = 0
-        if getattr(args, "from_chkpt", None) is not None:
-            with open(args.from_chkpt / "log.json") as f:
+        if from_chkpt is not None:
+            with open(from_chkpt / "log.json") as f:
                 self.log = json.load(f)
         else:
-            self.log = []
+            self.log = {"step": 0, "loss": []}
         if getattr(args, "tensorboard", False):
             self.tensorboard = SummaryWriter(log_dir=getattr(args, "checkpoint", "."))
             self.tensorboard.add_text(
                 "args", json.dumps(args2dict(args), sort_keys=True, indent=4)
             )
 
-    def start_epoch(self, i):
+    def start_epoch(self):
         self.t0 = time.time()
-        self.log.append({"epoch": i})
+        epoch = len(self.log["loss"])
+        self.log["loss"].append({"epoch": epoch})
+        return epoch
 
     def end_epoch(self, i):
-        self.log[i]["lr"] = self.model.get_lr()
-        self.log[i]["time"] = time.strftime(
+        self.log["loss"][i]["lr"] = self.model.get_lr()
+        self.log["loss"][i]["time"] = time.strftime(
             "%H:%M:%S", time.gmtime(time.time() - self.t0)
         )
         logging.info(f"saving checkpoint to {self.args.checkpoint}")
-        setattr(self.args, "step", self.step)
         checkpoint(f"{i:04d}", self.log, model=self.model, args=self.args)
         self.add_graph()
-        return self.log[i]
+        return self.log["loss"][i]
 
     def batch(self, loss, set_, i, j):
+        step = self.log["step"]
+        log = self.log["loss"][i]
         for key, value in loss.items():
             if j == 1:
-                self.log[i][f"{set_}_{key}"] = value
+                log[f"{set_}_{key}"] = value
             else:
-                self.log[i][f"{set_}_{key}"] *= j - 1
-                self.log[i][f"{set_}_{key}"] += value
-                self.log[i][f"{set_}_{key}"] /= j
+                log[f"{set_}_{key}"] *= j - 1
+                log[f"{set_}_{key}"] += value
+                log[f"{set_}_{key}"] /= j
         if self.tensorboard is not None:
             for key, value in loss.items():
-                self.tensorboard.add_scalar(f"{key}/{set_}", value, self.step)
+                self.tensorboard.add_scalar(f"{key}/{set_}", value, step)
         if (
             self.chkpt_interval is not None
-            and self.step % self.chkpt_interval == 0
+            and step % self.chkpt_interval == 0
             and set_ == "train"
         ):
-            self.checkpoint(i, self.log, f"{set_}_step_{self.step}")
+            checkpoint(f"{i:04d}", self.log, f"{set_}_step_{step}")
         if (
             self.image_interval[set_] is not None
             and j % self.image_interval[set_] == 0
@@ -101,8 +100,8 @@ class Callback:
             if self.tensorboard is not None:
                 self.tensorboard.flush()
             gc.collect()
-        self.step += 1
-        return self.log[i]
+        self.log["step"] += 1
+        return log
 
     def add_graph(self, overwrite=False):
         if self.is_graph_written and not overwrite:
@@ -143,8 +142,9 @@ def process_epoch(model, set_, loader, i, n, verbose, callback):
 
 
 def trainer(model, loader_dict, train_epochs, callback=Callback(), verbose=True):
-    for i in range(train_epochs):
-        callback.start_epoch(i)
+    i = 0
+    while i < train_epochs:
+        i = callback.start_epoch()
         for set_, loader in loader_dict.items():
             process_epoch(model, set_, loader, i, train_epochs, verbose, callback)
         log = callback.end_epoch(i)
