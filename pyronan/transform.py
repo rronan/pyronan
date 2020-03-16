@@ -25,6 +25,8 @@ def make_augmentation_transforms(args):
     for transform_name in args.augmentations_list:
         if transform_name == "HorizontalFlip":
             transform = albumentations.HorizontalFlip(p=0.5)
+        if transform_name == "VerticalFlip":
+            transform = albumentations.VerticalFlip(p=0.5)
         elif transform_name == "ElasticTransform":
             transform = albumentations.ElasticTransform(
                 alpha=args.elastic_alpha,
@@ -58,6 +60,7 @@ def make_augmentation_transforms(args):
                 max_height=args.cutout_max_height,
             )
         else:
-            assert False, "Unrecognized transform type"
+            raise ValueError("Unrecognized transform type")
         transforms.append(transform)
-    return albumentations.Compose(transforms, albumentations.BboxParams("pascal_voc"))
+    bboxes_params = albumentations.BboxParams("pascal_voc", label_fields=["labels"])
+    return albumentations.Compose(transforms, bboxes_params)

@@ -130,7 +130,7 @@ class Model:
     def load(self, path):
         print(f"loading {path}")
         chkpt = torch.load(path, map_location=self.device)
-        if "weights" in chkpt and "optimize" in chkpt:
+        if "weights" in chkpt and "optimizer" in chkpt:
             weights = {
                 k.replace(".module", "", 1): v for k, v in chkpt["weights"].items()
             }
