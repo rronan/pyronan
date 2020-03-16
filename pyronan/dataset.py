@@ -16,7 +16,16 @@ parser_dataset.add_argument("--slice", type=parse_slice, default=slice(None))
 parser_dataset.add_argument("--clip", type=float, default=10)
 
 
-def make_loader(Dataset, args, set_, bsz, num_workers, pin_memory=False, shuffle=None):
+def make_loader(
+    Dataset,
+    args,
+    set_,
+    bsz,
+    num_workers,
+    pin_memory=False,
+    shuffle=None,
+    collate_fn=None,
+):
     if type(Dataset) is str:
         print("importing", Dataset)
         Dataset = locate(Dataset)
@@ -28,6 +37,7 @@ def make_loader(Dataset, args, set_, bsz, num_workers, pin_memory=False, shuffle
         shuffle=shuffle if shuffle is not None else (set == "train"),
         drop_last=True,
         pin_memory=pin_memory,
+        collate_fn=collate_fn,
     )
     return loader
 

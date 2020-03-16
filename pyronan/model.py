@@ -8,7 +8,7 @@ from torch import nn
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from apex import amp
+# from apex import amp
 from pyronan.utils.misc import Nop
 
 parser_model = ArgumentParser(add_help=False)
@@ -26,9 +26,7 @@ parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 parser_model.add_argument("--amp_level", choices=["O0", "O1", "O2", "O3"], default=None)
 
 
-def make_model(
-    Model, args, gpu=False, data_parallel=False, load=None, amp_level=None,
-):
+def make_model(Model, args, gpu=False, data_parallel=False, load=None, amp_level=None):
     if type(Model) is str:
         print("importing", Model)
         Model = locate(Model)

@@ -4,12 +4,11 @@ import logging
 import math
 import time
 from argparse import ArgumentParser
-from pathlib import Path
 
-from pympler.tracker import SummaryTracker
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
+# from pympler.tracker import SummaryTracker
 from pyronan.utils.misc import args2dict, checkpoint
 
 parser_train = ArgumentParser(add_help=False)
@@ -18,13 +17,11 @@ parser_train.add_argument("--batch_size", type=int, help="batch size")
 parser_train.add_argument("--num_workers", type=int, default=20)
 parser_train.add_argument("--pin_memory", action="store_true")
 parser_train.add_argument("--save_all", action="store_true")
-parser_train.add_argument("--save_last", action="store_true")
 parser_train.add_argument("--chkpt_interval", type=int, default=None)
 parser_train.add_argument("--image_interval_val", type=int, default=None)
 parser_train.add_argument("--image_interval_train", type=int, default=None)
 parser_train.add_argument("--gc_collect_interval", type=int, default=None)
 parser_train.add_argument("--tensorboard", action="store_true")
-parser_train.add_argument("--step", type=int, default=0)
 
 
 class Callback:
