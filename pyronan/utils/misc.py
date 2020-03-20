@@ -150,16 +150,10 @@ def args2dict(args):
     return vars(args_copy)
 
 
-def save_args(path, args, zf=None):
+def save_args(path, args):
     args_dict = args2dict(args)
-    if zf is None:
-        with open(path, "w") as f:
-            json.dump(args_dict, f, indent=4, sort_keys=True)
-    else:
-        zf.writestr(
-            str(path).replace("/", "\\"),
-            json.dumps(args_dict, indent=4, sort_keys=True),
-        )
+    with open(path, "w") as f:
+        json.dump(args_dict, f, indent=4, sort_keys=True)
 
 
 def load_args(path, type_dict):
@@ -167,9 +161,7 @@ def load_args(path, type_dict):
         dict_ = json.load(f)
     for k, v in dict_.items():
         if type_dict[k] is not None:
-            if k == "lr":
-                pass
-            elif type(v) is list:
+            if type(v) is list:
                 v = [type_dict[k](e) for e in v]
             elif v is not None:
                 v = type_dict[k](v)

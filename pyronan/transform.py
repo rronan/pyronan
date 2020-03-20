@@ -3,26 +3,26 @@ from argparse import ArgumentParser
 import albumentations
 import cv2
 
-parser = ArgumentParser(add_help=False)
-parser.add_argument("--augmentation_list", nargs="+", default=[])
-parser.add_argument("--shift_limit", type=float, default=0.0625)
-parser.add_argument("--scale_limit", type=float, default=0.1)
-parser.add_argument("--rotate_limit", type=float, default=10)
-parser.add_argument("--elastic_alpha", type=float, default=0.1)
-parser.add_argument("--elastic_sigma", type=int, default=50)
-parser.add_argument("--elastic_alpha_affine", type=int, default=50)
-parser.add_argument("--brightness_limit", type=float, default=0.1)
-parser.add_argument("--contrast_limit", type=float, default=0.1)
-parser.add_argument("--grid_distortion_steps", type=int, default=4)
-parser.add_argument("--distort_limit", type=float, default=0.1)
-parser.add_argument("--cutout_max_holes", type=int, default=4)
-parser.add_argument("--cutout_max_width", type=int, default=4)
-parser.add_argument("--cutout_max_height", type=int, default=4)
+parser_transform = ArgumentParser(add_help=False)
+parser_transform.add_argument("--augmentation_list", nargs="+", default=[])
+parser_transform.add_argument("--shift_limit", type=float, default=0.0625)
+parser_transform.add_argument("--scale_limit", type=float, default=0.1)
+parser_transform.add_argument("--rotate_limit", type=float, default=10)
+parser_transform.add_argument("--elastic_alpha", type=float, default=0.1)
+parser_transform.add_argument("--elastic_sigma", type=int, default=50)
+parser_transform.add_argument("--elastic_alpha_affine", type=int, default=50)
+parser_transform.add_argument("--brightness_limit", type=float, default=0.1)
+parser_transform.add_argument("--contrast_limit", type=float, default=0.1)
+parser_transform.add_argument("--grid_distortion_steps", type=int, default=4)
+parser_transform.add_argument("--distort_limit", type=float, default=0.1)
+parser_transform.add_argument("--cutout_max_holes", type=int, default=4)
+parser_transform.add_argument("--cutout_max_width", type=int, default=4)
+parser_transform.add_argument("--cutout_max_height", type=int, default=4)
 
 
 def make_augmentation_transforms(args):
     transforms = []
-    for transform_name in args.augmentations_list:
+    for transform_name in args.augmentation_list:
         if transform_name == "HorizontalFlip":
             transform = albumentations.HorizontalFlip(p=0.5)
         if transform_name == "VerticalFlip":

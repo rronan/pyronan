@@ -48,10 +48,4 @@ def load_from_keras(self, h5_path):
 
 
 def is_backbone_grad(lr):
-    for kv in lr:
-        if type(kv) is float:
-            return True
-        else:
-            if kv[0] == "backbone":
-                return True
-    return False
+    return type(lr) is float or type(lr) is int or "backbone" in lr

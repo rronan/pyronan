@@ -1,3 +1,4 @@
+import json
 from argparse import ArgumentParser
 from pathlib import Path
 from pydoc import locate
@@ -13,9 +14,7 @@ from pyronan.utils.misc import Nop
 
 parser_model = ArgumentParser(add_help=False)
 parser_model.add_argument("--grad_clip", type=float, default=None)
-parser_model.add_argument(
-    "--lr", nargs="+", type=lambda x: x.split(":"), default=[1e-3]
-)
+parser_model.add_argument("--lr", type=json.loads, default=1e-3)
 parser_model.add_argument("--lr_decay", type=float, default=0.1)
 parser_model.add_argument("--lr_patience", type=int, default=10)
 parser_model.add_argument("--optimizer", default="Adam")
@@ -59,43 +58,34 @@ class Model:
             self.set_optim(args)
 
     @staticmethod
-    def _lr_arg(nn_module, kv):
-        if type(kv) is float:
-            return {"params": nn_module.parameters(), "lr": kv}
-        if len(kv) == 1:
-            return {"params": nn_module.parameters(), "lr": float(kv[0])}
-        return {"params": getattr(nn_module, kv[0]).parameters(), "lr": float(kv[1])}
-
-    @staticmethod
-    def _lr_arg_list(nn_module, lr):
-        if type(float) is float:
+    def _lr_arg(nn_module, lr):
+        if type(lr) is float or type(lr) is int:
             return [{"params": nn_module.parameters(), "lr": lr}]
-        return [Model._lr_arg(nn_module, kv) for kv in lr]
+        return [
+            {"params": getattr(nn_module, k).parameters(), "lr": v}
+            for k, v in lr.items()
+        ]
 
     @staticmethod
     def _check_parameter_lr(nn_module, lr):
-        if type(lr) is float:
-            return
-        assert type(lr) is list
-        if len(lr) == 1:
-            assert len(lr[0]) == 1
+        if type(lr) is float or type(lr) is int:
             return
         num_param_total = sum([m.numel() for m in nn_module.parameters()])
-        submodules = [k for k, _ in lr]
         num_param_list = [
             sum([m.numel() for m in getattr(nn_module, x).parameters()])
-            for x in submodules
+            for x in lr.keys()
         ]
         assert num_param_total == sum(num_param_list)
 
     def set_optim(self, args):
         self.grad_clip = args.grad_clip
-        self._check_parameter_lr(self.nn_module, args.lr)
+        # self._check_parameter_lr(self.nn_module, args.lr)
         kwargs = {}
         if args.weight_decay is not None:
             kwargs["weight_decay"] = args.weight_decay
-        lr = [self._lr_arg(self.nn_module, kv) for kv in args.lr]
-        self.optimizer = getattr(optim, args.optimizer)(lr, **kwargs)
+        lr_arg = self._lr_arg(self.nn_module, args.lr)
+        print(lr_arg)
+        self.optimizer = getattr(optim, args.optimizer)(lr_arg, **kwargs)
         self.lr_scheduler = ReduceLROnPlateau(
             self.optimizer,
             patience=args.lr_patience,
