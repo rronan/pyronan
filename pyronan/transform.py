@@ -25,7 +25,7 @@ def make_augmentation_transforms(args):
     for transform_name in args.augmentation_list:
         if transform_name == "HorizontalFlip":
             transform = albumentations.HorizontalFlip(p=0.5)
-        if transform_name == "VerticalFlip":
+        elif transform_name == "VerticalFlip":
             transform = albumentations.VerticalFlip(p=0.5)
         elif transform_name == "ElasticTransform":
             transform = albumentations.ElasticTransform(

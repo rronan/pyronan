@@ -1,13 +1,15 @@
 import numpy as np
 import torch.nn as nn
+from PIL import Image
+
 import torchvision
+from pyronan.model import Model
+from pyronan.utils.draw import draw_detection_batched
+from pyronan.utils.image import COLOR_LIST
+from pyronan.utils.torchutil import is_backbone_grad
 from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
-
-from pyronan.model import Model
-from pyronan.utils.draw import draw_detection_batch
-from pyronan.utils.torchutil import is_backbone_grad
 
 
 class RCNN(Model):
@@ -40,11 +42,31 @@ class RCNN(Model):
     def get_input_to_model(self):
         return [image.to(self.device) for image in self.batch[0]]
 
+    @staticmethod
+    def draw(images, detections, cutoff):
+        image_batch, detection_batch, colors_batch = [], [], []
+        for image, detection in zip(images, detections):
+            labels = detection["labels"].detach().cpu().numpy()
+            c = labels != 0
+            if "scores" in detection:
+                c *= detection["scores"].detach().cpu().numpy() > cutoff
+            detection_batch.append(
+                {"boxes": detection["boxes"].detach().cpu().numpy()[c]}
+            )
+            colors_batch.append([COLOR_LIST[i] for i in labels[c]])
+            image = (image * 255).numpy().astype(np.uint8).transpose((1, 2, 0))
+            image_batch.append(Image.fromarray(image))
+        res = draw_detection_batched(image_batch, detection_batch, colors_batch)
+        return res
+
     def get_image(self, cutoff=0):
         self.nn_module.eval()
         predictions = self.nn_module([x.to(self.device) for x in self.batch[0]])
         self.nn_module.train()
-        return draw_detection_batch(*self.batch, predictions, cutoff)
+        images, targets = self.batch
+        im_list = [self.draw(images, y, cutoff) for y in [targets, predictions]]
+        res = np.concatenate(im_list, axis=0)[np.newaxis]
+        return res.astype("uint8").transpose((0, 3, 1, 2))
 
     def __call__(self, x):
         y = self.nn_module(x)

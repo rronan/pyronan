@@ -160,7 +160,7 @@ def load_args(path, type_dict):
     with open(str(path), "r") as f:
         dict_ = json.load(f)
     for k, v in dict_.items():
-        if type_dict[k] is not None:
+        if k != "lr" and type_dict[k] is not None:
             if type(v) is list:
                 v = [type_dict[k](e) for e in v]
             elif v is not None:
