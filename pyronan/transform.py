@@ -5,19 +5,19 @@ import cv2
 
 parser_transform = ArgumentParser(add_help=False)
 parser_transform.add_argument("--augmentation_list", nargs="+", default=[])
-parser_transform.add_argument("--shift_limit", type=float, default=0.0625)
-parser_transform.add_argument("--scale_limit", type=float, default=0.1)
-parser_transform.add_argument("--rotate_limit", type=float, default=10)
+parser_transform.add_argument("--shift_limit", type=float, default=0.2)
+parser_transform.add_argument("--scale_limit", type=float, default=0.2)
+parser_transform.add_argument("--rotate_limit", type=float, default=30)
 parser_transform.add_argument("--elastic_alpha", type=float, default=0.1)
 parser_transform.add_argument("--elastic_sigma", type=int, default=50)
 parser_transform.add_argument("--elastic_alpha_affine", type=int, default=50)
-parser_transform.add_argument("--brightness_limit", type=float, default=0.1)
-parser_transform.add_argument("--contrast_limit", type=float, default=0.1)
+parser_transform.add_argument("--brightness_limit", type=float, default=0.2)
+parser_transform.add_argument("--contrast_limit", type=float, default=0.2)
 parser_transform.add_argument("--grid_distortion_steps", type=int, default=4)
 parser_transform.add_argument("--distort_limit", type=float, default=0.1)
-parser_transform.add_argument("--cutout_max_holes", type=int, default=4)
-parser_transform.add_argument("--cutout_max_width", type=int, default=4)
-parser_transform.add_argument("--cutout_max_height", type=int, default=4)
+parser_transform.add_argument("--cutout_max_holes", type=int, default=20)
+parser_transform.add_argument("--cutout_max_width", type=int, default=20)
+parser_transform.add_argument("--cutout_max_height", type=int, default=20)
 
 
 def make_augmentation_transforms(args):
@@ -59,8 +59,10 @@ def make_augmentation_transforms(args):
                 max_width=args.cutout_max_width,
                 max_height=args.cutout_max_height,
             )
+        elif transform_name == "JpegCompression":
+            transform = albumentations.JpegCompression()
         else:
-            raise ValueError("Unrecognized transform type")
+            raise ValueError(f"Unrecognized transform type: {transform_name}")
         transforms.append(transform)
     bboxes_params = albumentations.BboxParams("pascal_voc", label_fields=["labels"])
     return albumentations.Compose(transforms, bboxes_params)

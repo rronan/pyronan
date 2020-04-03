@@ -181,6 +181,9 @@ def checkpoint(epoch, log, model=None, args=None, path=None):
     if getattr(args, "save_all", False):
         model.save(path, epoch)
     model.save(path, "last")
-    if "val_loss" in log["loss"][-1]:
-        if log["loss"][-1]["val_loss"] == min([x["val_loss"] for x in log["loss"]]):
-            model.save(path, "best")
+    last_val_loss = log["loss"][-1].get("val_loss")
+    if last_val_loss is not None:
+        for loss in log["loss"][:-1]:
+            if "val_loss" in loss and loss["val_loss"] < last_val_loss:
+                return
+        model.save(path, "best")

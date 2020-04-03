@@ -61,10 +61,10 @@ class Model:
     def _lr_arg(nn_module, lr):
         if type(lr) is float or type(lr) is int:
             return [{"params": nn_module.parameters(), "lr": lr}]
-        return [
-            {"params": getattr(nn_module, k).parameters(), "lr": v}
-            for k, v in lr.items()
-        ]
+        res = []
+        for k, v in sorted(lr.items()):
+            res.append({"params": getattr(nn_module, k).parameters(), "lr": v})
+        return res
 
     @staticmethod
     def _check_parameter_lr(nn_module, lr):
