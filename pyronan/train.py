@@ -61,9 +61,8 @@ class Callback:
             self.loss_buffer = defaultdict(list)
         return epoch
 
-    def end_epoch(self, i):
+    def end_epoch(self, i, val=True):
         self.log["loss"][i]["lr"] = self.model.get_lr()
-
         self.log["loss"][i]["time"] = time.strftime(
             "%H:%M:%S", time.gmtime(time.time() - self.t0)
         )
@@ -71,23 +70,24 @@ class Callback:
         checkpoint(f"{i:04d}", self.log, model=self.model, args=self.args)
         return self.log["loss"][i]
 
-    def batch(self, loss, set_, i, j):
+    def batch(self, loss, set_, i, j, last=False):
+        train = set_ == "train"
         step = self.log["step"]
         log = self.log["loss"][i]
         for key, value in loss.items():
             x = log.get(f"{set_}_{key}", value)
             log[f"{set_}_{key}"] = (x * (j - 1) + value) / j
-        if self.tensorboard is not None:
+        if self.tensorboard is not None and set_ == "train":
             for key, value in loss.items():
                 self.loss_buffer[key].append(value)
-            if j % self.tensorboard_interval == 0:
+            if (train and j % self.tensorboard_interval == 0) or (not train and last):
                 for key, value in self.loss_buffer.items():
                     self.tensorboard.add_scalar(f"{key}/{set_}", np.mean(value), step)
                     self.loss_buffer = defaultdict(list)
         if (
             self.chkpt_interval is not None
             and step % self.chkpt_interval == 0
-            and set_ == "train"
+            and train
         ):
             checkpoint(f"{i:04d}", self.log, f"{set_}_step_{step}")
         if (
@@ -99,10 +99,6 @@ class Callback:
             images = self.model.get_image(self.cutoff)
             self.tensorboard.add_images(f"{set_}/{j}", images)
             self.tensorboard.flush()
-        # if self.gc_collect_interval is not None and j % self.gc_collect_interval == 0:
-        #     if self.tensorboard is not None:
-        #         self.tensorboard.flush()
-        #     gc.collect()
         self.log["step"] += 1
         return log
 
@@ -121,8 +117,8 @@ def loss2str(set_, i, n, loss, verbose):
 
 
 def process_epoch(model, set_, loader, i, n, verbose, callback):
-    j, loss = 1, {}
-    pbar = tqdm(total=len(loader), dynamic_ncols=True, leave=False)
+    j, L, loss = 1, len(loader), {}
+    pbar = tqdm(total=L, dynamic_ncols=True, leave=False)
     iterator = iter(loader)
     while True:
         pbar.update(n=1)
@@ -137,7 +133,7 @@ def process_epoch(model, set_, loader, i, n, verbose, callback):
         except StopIteration:
             break
         loss = model.step(batch, set_)
-        loss_avg = callback.batch(loss, set_, i, j)
+        loss_avg = callback.batch(loss, set_, i, j, last=(j == L))
         pbar.set_description(loss2str(set_, i, n, loss_avg, verbose))
         j += 1
     return loss
