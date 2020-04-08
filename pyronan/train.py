@@ -1,8 +1,6 @@
-import gc
 import json
 import logging
 import math
-import sys
 import time
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -27,7 +25,20 @@ parser_train.add_argument("--tensorboard", action="store_true")
 parser_train.add_argument("--tensorboard_interval", type=int, default=100)
 
 
-class Callback:
+def loss2str(set_, i, n, loss, verbose):
+    if verbose:
+        loss = {
+            k.replace("train_", "").replace("val_", ""): v
+            for k, v in loss.items()
+            if k != "epoch"
+        }
+        x = f"{set_} {i}/{n-1}," + " | ".join(f"{k}: {v:.3e}" for k, v in loss.items())
+    else:
+        x = f"{set_} {i}/{n - 1} | {loss[set_]:.3e}"
+    return x
+
+
+class Trainer:
     def __init__(self, model=None, args=None, from_chkpt=None):
         self.model = model
         self.args = args
@@ -61,7 +72,7 @@ class Callback:
             self.loss_buffer = defaultdict(list)
         return epoch
 
-    def end_epoch(self, i, val=True):
+    def end_epoch(self, i):
         self.log["loss"][i]["lr"] = self.model.get_lr()
         self.log["loss"][i]["time"] = time.strftime(
             "%H:%M:%S", time.gmtime(time.time() - self.t0)
@@ -70,7 +81,7 @@ class Callback:
         checkpoint(f"{i:04d}", self.log, model=self.model, args=self.args)
         return self.log["loss"][i]
 
-    def batch(self, loss, set_, i, j, last=False):
+    def log_batch(self, loss, set_, i, j, last=False):
         train = set_ == "train"
         step = self.log["step"]
         log = self.log["loss"][i]
@@ -102,51 +113,38 @@ class Callback:
         self.log["step"] += 1
         return log
 
+    def process_epoch(self, set_, loader, i, n, verbose):
+        j, L, loss = 1, len(loader), {}
+        pbar = tqdm(total=L, dynamic_ncols=True, leave=False)
+        iterator = iter(loader)
+        while True:
+            pbar.update(n=1)
+            try:
+                batch = next(iterator)
+            except (RuntimeError, TimeoutError) as e:
+                # this is a fix to hanging pytorch dataloader in some multithreaded cases
+                print("*" * 80)
+                logging.warning(f"Exception caught in process_epoch(): \n {e}")
+                j, L, loss = 1, len(loader), {}
+                pbar = tqdm(total=L, dynamic_ncols=True, leave=False)
+                iterator = iter(deepcopy(loader))
+                continue
+            except StopIteration:
+                break
+            loss = self.model.step(batch, set_)
+            loss_avg = self.log_batch(loss, set_, i, j, last=(j == L))
+            pbar.set_description(loss2str(set_, i, n, loss_avg, verbose))
+            j += 1
+        return loss
 
-def loss2str(set_, i, n, loss, verbose):
-    if verbose:
-        loss = {
-            k.replace("train_", "").replace("val_", ""): v
-            for k, v in loss.items()
-            if k != "epoch"
-        }
-        x = f"{set_} {i}/{n-1}," + " | ".join(f"{k}: {v:.3e}" for k, v in loss.items())
-    else:
-        x = f"{set_} {i}/{n - 1} | {loss[set_]:.3e}"
-    return x
-
-
-def process_epoch(model, set_, loader, i, n, verbose, callback):
-    j, L, loss = 1, len(loader), {}
-    pbar = tqdm(total=L, dynamic_ncols=True, leave=False)
-    iterator = iter(loader)
-    while True:
-        pbar.update(n=1)
-        try:
-            batch = next(iterator)
-        except (RuntimeError, TimeoutError) as e:
-            # this is a fix to hanging pytorch dataloader in some multithreaded cases
-            print("*" * 80)
-            logging.warning(f"Exception caught in process_epoch(): \n {e}")
-            iterator = iter(deepcopy(loader))
-            continue
-        except StopIteration:
-            break
-        loss = model.step(batch, set_)
-        loss_avg = callback.batch(loss, set_, i, j, last=(j == L))
-        pbar.set_description(loss2str(set_, i, n, loss_avg, verbose))
-        j += 1
-    return loss
-
-
-def trainer(model, loader_dict, train_epochs, callback=Callback(), verbose=True):
-    i = 0
-    while i < train_epochs:
-        i = callback.start_epoch()
-        for set_, loader in loader_dict.items():
-            process_epoch(model, set_, loader, i, train_epochs, verbose, callback)
-        log = callback.end_epoch(i)
-        print(log)
-        model.lr_scheduler.step(log["val_loss"])
-        if model.get_lr() < 5e-8 or math.isnan(log["train_loss"]):
-            break
+    def train(self, loader_dict, train_epochs, verbose=True):
+        i = 0
+        while i < train_epochs:
+            i = self.start_epoch()
+            for set_, loader in loader_dict.items():
+                self.process_epoch(set_, loader, i, train_epochs, verbose)
+            log = self.end_epoch(i)
+            print(log)
+            self.model.lr_scheduler.step(log["val_loss"])
+            if self.model.get_lr() < 5e-8 or math.isnan(log["train_loss"]):
+                break
