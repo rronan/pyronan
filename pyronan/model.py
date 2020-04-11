@@ -117,17 +117,18 @@ class Model:
                 loss = self.loss.forward(self.pred, self.y)
         return {"loss": loss.data.item()}
 
-    def load(self, path):
+    def load(self, path, optimizer=False):
         print(f"loading {path}")
         chkpt = torch.load(path, map_location=self.device)
-        if "weights" in chkpt and "optimizer" in chkpt:
+        if "weights" in chkpt:
             weights = {
                 k.replace(".module", "", 1): v for k, v in chkpt["weights"].items()
             }
             self.nn_module.load_state_dict(weights)
-            self.optimizer.load_state_dict(chkpt["optimizer"])
         else:
             self.nn_module.load_state_dict(chkpt)
+        if optimizer and "optimizer" in chkpt:
+            self.optimizer.load_state_dict(chkpt["optimizer"])
 
     def save(self, path, epoch):
         with open(path / f"{self.__class__.__name__}.txt", "w") as f:

@@ -22,7 +22,7 @@ parser_train.add_argument("--chkpt_interval", type=int, default=None)
 parser_train.add_argument("--image_interval_val", type=int, default=None)
 parser_train.add_argument("--image_interval_train", type=int, default=None)
 parser_train.add_argument("--tensorboard", action="store_true")
-parser_train.add_argument("--tensorboard_interval", type=int, default=100)
+parser_train.add_argument("--tensorboard_interval", type=int, default=1000)
 
 
 def loss2str(set_, i, n, loss, verbose):
@@ -47,7 +47,6 @@ class Trainer:
             set_: getattr(args, f"image_interval_{set_}", None)
             for set_ in ["train", "val"]
         }
-        # self.gc_collect_interval = getattr(args, "gc_collect_interval", None)
         self.cutoff = getattr(args, "cutoff", 0)
         self.tensorboard = None
         if from_chkpt is not None:
@@ -88,10 +87,10 @@ class Trainer:
         for key, value in loss.items():
             x = log.get(f"{set_}_{key}", value)
             log[f"{set_}_{key}"] = (x * (j - 1) + value) / j
-        if self.tensorboard is not None and set_ == "train":
+        if self.tensorboard is not None:
             for key, value in loss.items():
                 self.loss_buffer[key].append(value)
-            if (train and j % self.tensorboard_interval == 0) or (not train and last):
+            if (train and j % self.tensorboard_interval == 0) or last:
                 for key, value in self.loss_buffer.items():
                     self.tensorboard.add_scalar(f"{key}/{set_}", np.mean(value), step)
                     self.loss_buffer = defaultdict(list)
@@ -132,7 +131,9 @@ class Trainer:
             except StopIteration:
                 break
             loss = self.model.step(batch, set_)
-            loss_avg = self.log_batch(loss, set_, i, j, last=(j == L))
+            if set_ == "val":
+                print("\n", j, L, (j >= L), "\n")
+            loss_avg = self.log_batch(loss, set_, i, j, last=(j >= L))
             pbar.set_description(loss2str(set_, i, n, loss_avg, verbose))
             j += 1
         return loss
