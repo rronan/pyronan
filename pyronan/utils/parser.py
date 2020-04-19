@@ -16,8 +16,8 @@ def convert_verbose(level):
     return conversion_table[int(level)]
 
 
-parser = ArgumentParser(add_help=False)
-parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--name", type=append_timestamp, default="")
-parser.add_argument("--checkpoint", type=Path)
-parser.add_argument("--verbosity", type=convert_verbose, default=1)
+parser_base = ArgumentParser(add_help=False)
+parser_base.add_argument("--seed", type=int, default=0)
+parser_base.add_argument("--name", type=append_timestamp, default="")
+parser_base.add_argument("--checkpoint", type=Path)
+parser_base.add_argument("--verbosity", type=convert_verbose, default=1)

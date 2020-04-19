@@ -15,6 +15,7 @@ from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 class RCNN(Model):
     def __init__(self, nn_module, args):
         self.nms_iou = getattr(args, "nms_iou", None)
+        self.cutoff = getattr(args, "cutoff", 0)
         self.min_size = args.min_size
         self.max_size = args.max_size
         backbone_grad = is_backbone_grad(args.lr)
@@ -59,12 +60,12 @@ class RCNN(Model):
         res = draw_detection_batched(image_batch, detection_batch, colors_batch)
         return res
 
-    def get_image(self, cutoff=0):
+    def get_image(self):
         self.nn_module.eval()
         predictions = self.nn_module([x.to(self.device) for x in self.batch[0]])
         self.nn_module.train()
         images, targets = self.batch
-        im_list = [self.draw(images, y, cutoff) for y in [targets, predictions]]
+        im_list = [self.draw(images, y, self.cutoff) for y in [targets, predictions]]
         res = np.concatenate(im_list, axis=0)[np.newaxis]
         return res.astype("uint8").transpose((0, 3, 1, 2))
 
