@@ -7,10 +7,10 @@ from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
-from torch.utils.tensorboard import SummaryWriter
-from tqdm import tqdm
-
 from pyronan.utils.misc import args2dict, checkpoint
+from torch.utils.tensorboard import SummaryWriter
+
+from tqdm import tqdm
 
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--train_epochs", type=int, default=200)
@@ -25,16 +25,13 @@ parser_train.add_argument("--tensorboard", action="store_true")
 parser_train.add_argument("--tensorboard_interval", type=int, default=1000)
 
 
-def loss2str(set_, i, n, loss, verbose):
-    if verbose:
-        loss = {
-            k.replace("train_", "").replace("val_", ""): v
-            for k, v in loss.items()
-            if k != "epoch"
-        }
-        x = f"{set_} {i}/{n-1}," + " | ".join(f"{k}: {v:.3e}" for k, v in loss.items())
-    else:
-        x = f"{set_} {i}/{n - 1} | {loss[set_]:.3e}"
+def loss2str(set_, i, n, loss):
+    loss = {
+        k.replace("train_", "").replace("val_", ""): v
+        for k, v in loss.items()
+        if k != "epoch"
+    }
+    x = f"{set_} {i}/{n-1}," + " | ".join(f"{k}: {v:.3e}" for k, v in loss.items())
     return x
 
 
@@ -112,7 +109,7 @@ class Trainer:
         self.log["step"] += 1
         return log
 
-    def process_epoch(self, set_, loader, i, n, verbose):
+    def process_epoch(self, set_, loader, i, n):
         j, L, loss = 1, len(loader), {}
         pbar = tqdm(total=L, dynamic_ncols=True, leave=False)
         iterator = iter(loader)
@@ -131,19 +128,22 @@ class Trainer:
             except StopIteration:
                 break
             loss = self.model.step(batch, set_)
-            if set_ == "val":
-                print("\n", j, L, (j >= L), "\n")
             loss_avg = self.log_batch(loss, set_, i, j, last=(j >= L))
-            pbar.set_description(loss2str(set_, i, n, loss_avg, verbose))
+            desc_short = f'{set_} {i}/{n - 1} | {loss_avg[set_ + "_loss"]:.3e}'
+            try:
+                desc = loss2str(set_, i, n, loss_avg)
+                pbar.set_description(desc=desc, desc_short=desc_short)
+            except Exception as e:
+                pbar.set_description(desc=desc_short)
             j += 1
         return loss
 
-    def train(self, loader_dict, train_epochs, verbose=True):
+    def train(self, loader_dict, train_epochs):
         i = 0
         while i < train_epochs:
             i = self.start_epoch()
             for set_, loader in loader_dict.items():
-                self.process_epoch(set_, loader, i, train_epochs, verbose)
+                self.process_epoch(set_, loader, i, train_epochs)
             log = self.end_epoch(i)
             print(log)
             self.model.lr_scheduler.step(log["val_loss"])
