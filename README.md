@@ -1,4 +1,4 @@
-# pyronan
+# Pyronan
 Framework and utilities for training models with Pytorch
 
 
