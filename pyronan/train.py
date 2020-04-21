@@ -98,9 +98,10 @@ class Trainer:
 
     @staticmethod
     def _loss2str(set_, i, n, loss):
-        keys = [k.replace(f"{set_}_", "") for k in loss.keys() if k != "epoch"]
-        x = f"{set_} {i}/{n-1}," + " | ".join(f"{k}: {loss[k]:.3e}" for k in keys)
-        return x
+        res = f"{set_} {i}/{n-1},"
+        keys = {k: k.replace(f"{set_}_", "") for k in loss.keys() if k != "epoch"}
+        res += " | ".join(f"{v}: {loss[k]:.3e}" for k, v in keys.items())
+        return res
 
     def process_epoch(self, set_, loader, i, n):
         j, L, loss, iterator, pbar = self._init_loader(loader)
@@ -119,7 +120,7 @@ class Trainer:
             loss_avg = self.log_batch(loss, set_, i, j, last=(j >= L))
             pbar.set_description(
                 desc=self._loss2str(set_, i, n, loss_avg),
-                desc_short=f'{set_} {i}/{n - 1} | {loss_avg[set_ + "_loss"]:.3e}',
+                # desc_short=f'{set_} {i}/{n - 1} | {loss_avg[set_ + "_loss"]:.3e}',
             )
             j += 1
         return loss

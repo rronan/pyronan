@@ -28,14 +28,6 @@ def chunks(l, n):
         yield l[i : i + n]
 
 
-def tqdm_(x, *args, **kwargs):
-    if type(x) is int:
-        x = range(x)
-    if os.environ.get("DISABLE_TQDM"):
-        return x
-    return tqdm(x, *args, **kwargs, dynamic_ncols=True)
-
-
 def debug(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
