@@ -61,7 +61,7 @@ def train(args):
     }
     model = make_model(EfficientNet_unet, args, args.load, args.gpu, args.data_parallel)
     trainer = Trainer(model, args)
-    trainer.train(loader_dict, args.n_epochs)
+    trainer.fit(loader_dict, args.n_epochs)
 
 
 def write(semantic_mask_batch, path_batch):
