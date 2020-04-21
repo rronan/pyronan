@@ -37,6 +37,6 @@ loader_dict = {
 }
 model = MyModel()
 trainer = Trainer(model, args)
-trainer.train(loader_dict, args.train_epochs)
+trainer.fit(loader_dict, args.train_epochs)
 ```
 
