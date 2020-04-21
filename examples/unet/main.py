@@ -10,13 +10,12 @@ from pyronan.dataset import make_loader
 from pyronan.examples.unet.dataset import Dataset
 from pyronan.examples.unet.model import EfficientNet_unet
 from pyronan.model import make_model, parser_model
-from pyronan.train import parser_train, trainer
-from pyronan.utils.misc import parse_slice, set_seed
-from pyronan.utils.torchutil import Callback
+from pyronan.train import Trainer, parser_train
+from pyronan.utils.misc import parse_slice, parser_base, set_seed
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser(parents=[parser_model, parser_train])
+    parser = ArgumentParser(parents=[parser_base, parser_model, parser_train])
     parser.add_argument("task", nargs="+", choices=["train", "inference"])
     parser.add_argument("--model", default="EfficientNet_unet", help="model to train")
     parser.add_argument("--b", type=int, default=3)
@@ -61,7 +60,8 @@ def train(args):
         for set_ in ["train", "val"]
     }
     model = make_model(EfficientNet_unet, args, args.load, args.gpu, args.data_parallel)
-    trainer(model, loader_dict, args.n_epochs, args.verbose, Callback(model, args))
+    trainer = Trainer(model, args)
+    trainer.train(loader_dict, args.n_epochs)
 
 
 def write(semantic_mask_batch, path_batch):
