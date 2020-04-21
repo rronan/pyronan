@@ -74,7 +74,7 @@ def main():
     loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
     model = make_model(MaskRCNN, args, args.gpu, args.data_parallel, args.load)
     trainer = Trainer(model, args)
-    trainer.train(loader_dict, args.train_epochs)
+    trainer.fit(loader_dict, args.train_epochs)
 
 
 if __name__ == "__main__":

@@ -8,9 +8,9 @@ from copy import deepcopy
 
 import numpy as np
 from torch.utils.tensorboard import SummaryWriter
+from tqdm import tqdm
 
 from pyronan.utils.misc import args2dict, checkpoint
-from tqdm import tqdm
 
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--batch_size", type=int, help="batch size")
@@ -125,7 +125,7 @@ class Trainer:
             j += 1
         return loss
 
-    def train(self, loader_dict, train_epochs):
+    def fit(self, loader_dict, train_epochs):
         i = 0
         while i < train_epochs:
             i = self.start_epoch()
