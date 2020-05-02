@@ -1,20 +1,20 @@
 import numpy as np
 import torch.nn as nn
-from PIL import Image
-
 import torchvision
+from PIL import Image
 from pyronan.model import Model
 from pyronan.utils.draw import draw_detection_batched
 from pyronan.utils.image import COLOR_LIST
 from pyronan.utils.torchutil import is_backbone_grad
-from torchvision.models.detection import fasterrcnn_resnet50_fpn, maskrcnn_resnet50_fpn
-from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection import faster_rcnn
+from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
 
 class RCNN(Model):
     def __init__(self, nn_module, args):
         self.nms_iou = getattr(args, "nms_iou", None)
+        self.cutoff = getattr(args, "cutoff", 0)
         self.min_size = args.min_size
         self.max_size = args.max_size
         backbone_grad = is_backbone_grad(args.lr)
@@ -59,12 +59,12 @@ class RCNN(Model):
         res = draw_detection_batched(image_batch, detection_batch, colors_batch)
         return res
 
-    def get_image(self, cutoff=0):
+    def get_image(self):
         self.nn_module.eval()
         predictions = self.nn_module([x.to(self.device) for x in self.batch[0]])
         self.nn_module.train()
         images, targets = self.batch
-        im_list = [self.draw(images, y, cutoff) for y in [targets, predictions]]
+        im_list = [self.draw(images, y, self.cutoff) for y in [targets, predictions]]
         res = np.concatenate(im_list, axis=0)[np.newaxis]
         return res.astype("uint8").transpose((0, 3, 1, 2))
 
@@ -77,14 +77,29 @@ class RCNN(Model):
         return y
 
 
+def fasterrcnn_resnet101_fpn(pretrained_backbone=True, **kwargs):
+    backbone = resnet_fpn_backbone("resnet101", pretrained_backbone)
+    model = faster_rcnn.FasterRCNN(backbone, 1, **kwargs)
+    return model
+
+
 class FasterRCNN(RCNN):
-    def __init__(self, args, num_classes=None):
+    def __init__(self, args, num_classes=None, resnet101=False):
         self.num_classes = num_classes if num_classes is not None else args.num_classes
-        nn_module = fasterrcnn_resnet50_fpn(
-            pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
-        )
+        if resnet101:
+            nn_module = fasterrcnn_resnet101_fpn(
+                pretrained_backbone=args.pretrained,
+                min_size=args.min_size,
+                max_size=args.max_size,
+            )
+        else:
+            nn_module = faster_rcnn.fasterrcnn_resnet50_fpn(
+                pretrained=args.pretrained,
+                min_size=args.min_size,
+                max_size=args.max_size,
+            )
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
-        nn_module.roi_heads.box_predictor = FastRCNNPredictor(
+        nn_module.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(
             in_features, self.num_classes
         )
         super().__init__(nn_module, args)
@@ -93,11 +108,11 @@ class FasterRCNN(RCNN):
 class MaskRCNN(RCNN):
     def __init__(self, args, num_classes=None):
         self.num_classes = num_classes if num_classes is not None else args.num_classes
-        nn_module = maskrcnn_resnet50_fpn(
+        nn_module = faster_rcnn.maskrcnn_resnet50_fpn(
             pretrained=args.pretrained, min_size=args.min_size, max_size=args.max_size
         )
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
-        nn_module.roi_heads.box_predictor = FastRCNNPredictor(
+        nn_module.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(
             in_features, self.num_classes
         )
         in_features_mask = nn_module.roi_heads.mask_predictor.conv5_mask.in_channels

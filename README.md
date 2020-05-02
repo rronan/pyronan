@@ -1,4 +1,4 @@
-# pyronan
+# Pyronan
 Framework and utilities for training models with Pytorch
 
 
@@ -22,9 +22,9 @@ from argparse import ArgumentParser
 
 from torch.utils.data import DataLoader
 
-from pyronan.utils.parser import parser as parser_base
+from pyronan.utils.parser import parser_base
 from pyronan.model import parser_model, make_model
-from pyronan.train import Callback, parser_train, trainer
+from pyronan.train import parser_train, Trainer
 
 
 parser = ArgumentParser(parents=[parser_model, parser_train, parser_base])
@@ -36,7 +36,7 @@ loader_dict = {
     'val': DataLoader(MyDataset_val, args.batch_size, args.num_workers)
 }
 model = MyModel()
-callback = Callback(model, args)
-trainer(model, loader_dict, args.train_epochs, callback)
+trainer = Trainer(model, args)
+trainer.fit(loader_dict, args.train_epochs)
 ```
 

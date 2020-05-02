@@ -7,14 +7,13 @@ import torch.utils.data
 from dataset import Dataset_custom
 from pyronan.model import make_model, parser_model
 from pyronan.models.faster_rcnn import MaskRCNN
-from pyronan.train import parser_train, trainer
-from pyronan.utils.misc import parse_slice
-from pyronan.utils.torchutil import Callback
+from pyronan.train import Trainer, parser_train
+from pyronan.utils.misc import parse_slice, parser_base
 from vision.references.detection import group_by_aspect_ratio
 
 
 def parse_args(argv=None):
-    parser = ArgumentParser(parents=[parser_model, parser_train])
+    parser = ArgumentParser(parents=[parser_base, parser_model, parser_train])
     parser.set_defaults(
         checkpoint="/sequoia/data1/rriochet/pyronan/examples/mask_rcnn/checkpoints",
         name="",
@@ -22,7 +21,7 @@ def parse_args(argv=None):
         num_workers=4,
         optimizer="SGD",
         weight_decay=0,
-        n_epochs=40,
+        train_epochs=40,
         lr=[["rpn", 0.025], ["roi_heads", 0.025]],
     )
     parser.add_argument("--pretrained", action="store_true")
@@ -74,7 +73,8 @@ def main():
     print(args)
     loader_dict = {set_: make_loader(args, set_) for set_ in ["train", "val"]}
     model = make_model(MaskRCNN, args, args.gpu, args.data_parallel, args.load)
-    trainer(model, loader_dict, args.n_epochs, args.verbose, Callback(model, args))
+    trainer = Trainer(model, args)
+    trainer.fit(loader_dict, args.train_epochs)
 
 
 if __name__ == "__main__":
