@@ -7,10 +7,11 @@ from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
+import torch
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from pyronan.utils.misc import args2dict, checkpoint
+from pyronan.utils.misc import checkpoint
 
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--batch_size", type=int, help="batch size")

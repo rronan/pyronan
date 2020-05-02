@@ -1,15 +1,14 @@
 import argparse
+import imp
 import itertools
 import logging
 import os
-import time
 import traceback
 from collections import OrderedDict
 from copy import copy
 from pathlib import Path
 from pydoc import locate
 
-import yaml
 from dask.distributed import Client, as_completed
 from dask_jobqueue import SGECluster
 
@@ -59,37 +58,28 @@ def init_cluster(name, args):
 
 
 def make_config(config_path):
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-    if "name" not in config:
-        config["name"] = config_path.stem
-    config["name"] = append_timestamp(config["name"], end=True)
+    config = imp("config", config_path)
+    if getattr(config, "NAME") is None:
+        config.NAME = config_path.stem
+    config.NAME = append_timestamp(config.NAME, end=True)
     return config
-
-
-def update_opt(opt, type_dict, dict_):
-    for k, v in dict_.items():
-        if type_dict[k] is not None:
-            if type(v) is list:
-                v = [type_dict[k](e) for e in v]
-            else:
-                v = type_dict[k](v)
-        setattr(opt, k, v)
-    return opt
 
 
 def make_opt_list(config, merge_names):
     res = []
-    opt, type_dict = locate(config["parser"])([])
-    baseopt = update_opt(opt, type_dict, config["args"])
-    for grid in config["grids"]:
+    baseopt, _ = config.PARSER([])
+    for k, v in config.ARGS.items():
+        baseopt.k = v
+    for grid in config.GRIDS:
         grid = OrderedDict(grid)
         for values in itertools.product(*grid.values()):
-            opt = update_opt(copy(baseopt), type_dict, dict(zip(grid.keys(), values)))
+            opt = copy(baseopt)
+            for k, v in dict(zip(grid.keys(), values)):
+                opt.k = v
             if merge_names:
-                opt.name = config["name"]
+                opt.name = config.NAME
             else:
-                opt.name = "_".join([config["name"], f"{len(res):02d}"])
+                opt.name = "_".join([config.NAME, f"{len(res):02d}"])
             res.append(opt)
     return res
 
@@ -98,14 +88,14 @@ def submit(cluster, config, merge_names):
     client = Client(cluster)
     opt_list = make_opt_list(config, merge_names)
     print(opt_list)
-    func = locate(config["function"])
+    func = locate(config.FUNCTION)
     future_list = client.map(func, opt_list)
     return opt_list, future_list
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("config_path", type=Path, default="sweep.yaml")
+    parser.add_argument("config_path", type=Path, default="sweep.py")
     parser.add_argument("--exclude_nodes", nargs="+", default=[])
     parser.add_argument(
         "--log_dir", type=Path, default=os.environ.get("PYRONAN_LOG_DIR")
@@ -138,12 +128,12 @@ def main():
     args = parse_args()
     logging.info(args)
     config = make_config(args.config_path)
-    print(config["name"])
-    cluster = init_cluster(config["name"], args)
+    print(config.NAME)
+    cluster = init_cluster(config.NAME, args)
     opt_list, future_list = submit(cluster, config, args.merge_names)
     logging.info(cluster.job_script())
-    print(f'cat {args.log_dir}/{config["name"]}.o*')
-    print(f'cat {args.log_dir}/{config["name"]}.e*')
+    print(f"cat {args.log_dir}/{config.NAME}.o*")
+    print(f"cat {args.log_dir}/{config.NAME}.e*")
     try:
         c = -1  # defining variable to be use in the finally
         for c, future in enumerate(as_completed(future_list)):
