@@ -50,7 +50,7 @@ class Trainer:
         if getattr(args, "tensorboard", False):
             self.tensorboard_interval = getattr(args, "tensorboard_interval", 100)
             self.tensorboard = SummaryWriter(log_dir=getattr(args, "checkpoint", "."))
-            args_txt = json.dumps(args2dict(args), sort_keys=True, indent=4)
+            args_txt = json.dumps(str(args), sort_keys=True, indent=4)
             self.tensorboard.add_text("args", args_txt, global_step=0)
 
     def start_epoch(self):
