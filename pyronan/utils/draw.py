@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from pyronan.utils.image import COLOR_LIST, ti
+from pyronan.utils.image import COLOR_LIST
 
 
 def make_random_colors(N, bright=True):
@@ -66,10 +66,19 @@ def draw_mask_polygon(draw, mask, color):
     #     draw.polygon([tuple(x) for x in hull], outline=(255, 255, 255))
 
 
-def draw_mask(image, mask, color):
+def draw_binmask(image, binmask, color):
     rgbmask = np.tile(np.array(color)[np.newaxis, np.newaxis], image.size[::-1] + (1,))
     rgbmask = Image.fromarray(rgbmask.astype(np.uint8))
-    image.paste(Image.blend(image, rgbmask, 0.5), (0, 0), Image.fromarray(mask > 0.5))
+    image.paste(
+        Image.blend(image, rgbmask, 0.5), (0, 0), Image.fromarray(binmask > 0.5)
+    )
+
+
+def draw_mask(image, mask, color_list=COLOR_LIST):
+
+    for c, v in zip(color_list, np.unique(mask)):
+        binmask = mask == v
+        draw_binmask(image, binmask, c)
 
 
 def draw_detection(image, detection, colors="random", label_map={}):
@@ -93,7 +102,7 @@ def draw_detection(image, detection, colors="random", label_map={}):
                 label_map=label_map,
             )
         if "masks" in instance:
-            draw_mask(image, instance["masks"], color)
+            draw_binmask(image, instance["masks"], color)
             draw_mask_polygon(draw, instance["masks"], color)
         if "keypoints" in instance:
             draw_keypoints(draw, instance["keypoints"], color)
@@ -127,3 +136,14 @@ def fig2data(fig):
     buf.shape = (w, h, 4)
     buf = np.roll(buf, 3, axis=2)
     return buf
+
+
+def fig2img(fig):
+    buf = fig2data(fig)
+    w, h, d = buf.shape
+    return Image.frombytes("RGBA", (w, h), buf.tobytes()).convert("RGB")
+
+
+def fig2arr(fig):
+    img = fig2img(fig)
+    return np.array(img)
