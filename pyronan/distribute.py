@@ -7,7 +7,6 @@ import traceback
 from collections import OrderedDict
 from copy import copy
 from pathlib import Path
-from pydoc import locate
 
 from dask.distributed import Client, as_completed
 from dask_jobqueue import SGECluster
@@ -58,7 +57,7 @@ def init_cluster(name, args):
 
 
 def make_config(config_path):
-    config = imp("config", config_path)
+    config = imp.load_source("config", str(config_path))
     if getattr(config, "NAME") is None:
         config.NAME = config_path.stem
     config.NAME = append_timestamp(config.NAME, end=True)
@@ -67,15 +66,12 @@ def make_config(config_path):
 
 def make_opt_list(config, merge_names):
     res = []
-    baseopt, _ = config.PARSER([])
-    for k, v in config.ARGS.items():
-        baseopt.k = v
-    for grid in config.GRIDS:
+    for grid in config.GRID_LIST:
         grid = OrderedDict(grid)
         for values in itertools.product(*grid.values()):
-            opt = copy(baseopt)
-            for k, v in dict(zip(grid.keys(), values)):
-                opt.k = v
+            opt = copy(config.BASE_ARGS)
+            for k, v in zip(grid.keys(), values):
+                setattr(opt, k, v)
             if merge_names:
                 opt.name = config.NAME
             else:
@@ -87,9 +83,8 @@ def make_opt_list(config, merge_names):
 def submit(cluster, config, merge_names):
     client = Client(cluster)
     opt_list = make_opt_list(config, merge_names)
-    print(opt_list)
-    func = locate(config.FUNCTION)
-    future_list = client.map(func, opt_list)
+    logging.debug(opt_list)
+    future_list = client.map(config.FUNCTION, opt_list)
     return opt_list, future_list
 
 
