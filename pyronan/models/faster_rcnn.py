@@ -77,27 +77,19 @@ class RCNN(Model):
         return y
 
 
-def fasterrcnn_resnet101_fpn(pretrained_backbone=True, **kwargs):
-    backbone = resnet_fpn_backbone("resnet101", pretrained_backbone)
+def fasterrcnn_resnet_fpn(name, pretrained_backbone=True, **kwargs):
+    backbone = resnet_fpn_backbone(name, pretrained_backbone)
     model = faster_rcnn.FasterRCNN(backbone, 1, **kwargs)
     return model
 
 
 class FasterRCNN(RCNN):
-    def __init__(self, args, num_classes=None, resnet101=False):
+    def __init__(self, args, num_classes=None):
         self.num_classes = num_classes if num_classes is not None else args.num_classes
-        if resnet101:
-            nn_module = fasterrcnn_resnet101_fpn(
-                pretrained_backbone=args.pretrained,
-                min_size=args.min_size,
-                max_size=args.max_size,
-            )
-        else:
-            nn_module = faster_rcnn.fasterrcnn_resnet50_fpn(
-                pretrained=args.pretrained,
-                min_size=args.min_size,
-                max_size=args.max_size,
-            )
+        self.resnet_name = getattr(args, "resnet_name", "resnet50")
+        nn_module = fasterrcnn_resnet_fpn(
+            name=self.resnet_name, min_size=args.min_size, max_size=args.max_size,
+        )
         in_features = nn_module.roi_heads.box_predictor.cls_score.in_features
         nn_module.roi_heads.box_predictor = faster_rcnn.FastRCNNPredictor(
             in_features, self.num_classes

@@ -1,4 +1,5 @@
 import json
+import logging
 from argparse import ArgumentParser
 from pathlib import Path
 from pydoc import locate
@@ -7,31 +8,43 @@ import torch
 import torch.optim as optim
 from torch import nn
 from torch.nn.utils import clip_grad_norm_
-from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 # from apex import amp
-from pyronan.utils.misc import Nop
+amp = None
 
 parser_model = ArgumentParser(add_help=False)
 parser_model.add_argument("--grad_clip", type=float, default=None)
 parser_model.add_argument("--lr", type=json.loads, default=1e-3)
-parser_model.add_argument("--lr_decay", type=float, default=0.1)
-parser_model.add_argument("--lr_patience", type=int, default=10)
 parser_model.add_argument("--optimizer", default="Adam")
+parser_model.add_argument("--lr_scheduler", default="ReduceLROnPlateau")
+parser_model.add_argument(
+    "--lr_scheduler_kwargs",
+    type=json.loads,
+    default={"factor": 0.1, "patience": 10, "eps": 1e-9},
+)
 parser_model.add_argument("--weight_decay", type=float, default=0)
 parser_model.add_argument("--load", type=Path, default=None)
+parser_model.add_argument("--restore_optmizer", action="store_true")
 parser_model.add_argument("--data_parallel", action="store_true")
 parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 parser_model.add_argument("--amp_level", choices=["O0", "O1", "O2", "O3"], default=None)
 
 
-def make_model(Model, args, gpu=False, data_parallel=False, load=None, amp_level=None):
+def make_model(
+    Model,
+    args,
+    gpu=False,
+    data_parallel=False,
+    load=None,
+    restore_optimizer=False,
+    amp_level=None,
+):
     if type(Model) is str:
         print("importing", Model)
         Model = locate(Model)
     model = Model(args)
     if load is not None:
-        model.load(load)
+        model.load(load, restore_optimizer)
     if data_parallel:
         model.data_parallel()
         print("Training on", torch.cuda.device_count(), "GPUs!")
@@ -51,10 +64,6 @@ class Model:
         self.is_amp = False
         self.nn_module = nn_module
         if nn_module is None:
-            self.nn_module = nn.Module()
-            self.optimizer = None
-            self.lr_scheduler = Nop()
-        else:
             self.set_optim(args)
 
     @staticmethod
@@ -66,33 +75,16 @@ class Model:
             res.append({"params": getattr(nn_module, k).parameters(), "lr": v})
         return res
 
-    @staticmethod
-    def _check_parameter_lr(nn_module, lr):
-        if type(lr) is float or type(lr) is int:
-            return
-        num_param_total = sum([m.numel() for m in nn_module.parameters()])
-        num_param_list = [
-            sum([m.numel() for m in getattr(nn_module, x).parameters()])
-            for x in lr.keys()
-        ]
-        assert num_param_total == sum(num_param_list)
-
     def set_optim(self, args):
         self.grad_clip = args.grad_clip
-        # self._check_parameter_lr(self.nn_module, args.lr)
-        kwargs = {}
-        if args.weight_decay is not None:
-            kwargs["weight_decay"] = args.weight_decay
         lr_arg = self._lr_arg(self.nn_module, args.lr)
-        print(lr_arg)
-        self.optimizer = getattr(optim, args.optimizer)(lr_arg, **kwargs)
-        self.lr_scheduler = ReduceLROnPlateau(
-            self.optimizer,
-            patience=args.lr_patience,
-            factor=args.lr_decay,
-            verbose=True,
-            eps=1e-9,
-        )
+        logging.info(lr_arg)
+        wd = getattr(args, "weight_decay", 0)
+        self.optimizer = getattr(optim, args.optimizer)(lr_arg, weight_decay=wd)
+        if len(args.lr_scheduler) > 0:
+            self.lr_scheduler = getattr(torch.optim.lr_scheduler, args.lr_scheduler)(
+                self.optimizer, **args.lr_scheduler_kwargs, verbose=True
+            )
 
     def update(self, loss):
         self.nn_module.zero_grad()
@@ -117,8 +109,8 @@ class Model:
                 loss = self.loss.forward(self.pred, self.y)
         return {"loss": loss.data.item()}
 
-    def load(self, path, optimizer=False):
-        print(f"loading {path}")
+    def load(self, path, restore_optimizer=False):
+        logging.info(f"loading {path}")
         chkpt = torch.load(path, map_location=self.device)
         if "weights" in chkpt:
             weights = {
@@ -127,7 +119,8 @@ class Model:
             self.nn_module.load_state_dict(weights)
         else:
             self.nn_module.load_state_dict(chkpt)
-        if optimizer and "optimizer" in chkpt:
+        if restore_optimizer and "optimizer" in chkpt:
+            logging.info(f"loading optimizer as well")
             self.optimizer.load_state_dict(chkpt["optimizer"])
 
     def save(self, path, epoch):
@@ -168,7 +161,7 @@ class Model:
         if self.optimizer is not None:
             return self.optimizer.param_groups[0]["lr"]
         else:
-            return 1
+            return 0
 
     def get_num_parameters(self):
         return sum([m.numel() for m in self.nn_module.parameters()])

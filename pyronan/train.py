@@ -7,10 +7,10 @@ from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
+import torch
+from pyronan.utils.misc import args2dict, checkpoint
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
-
-from pyronan.utils.misc import args2dict, checkpoint
 
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--batch_size", type=int, help="batch size")
@@ -110,7 +110,6 @@ class Trainer:
             try:
                 batch = next(iterator)
             except (RuntimeError, TimeoutError) as e:
-                # this is a fix to hanging pytorch dataloader in some multithreaded cases
                 logging.warning(f"\n***\n Exception caught in process_epoch(): \n {e}")
                 j, L, loss, iterator, pbar = self._init_loader(loader, copy=True)
                 continue
@@ -118,10 +117,7 @@ class Trainer:
                 break
             loss = self.model.step(batch, set_)
             loss_avg = self.log_batch(loss, set_, i, j, last=(j >= L))
-            pbar.set_description(
-                desc=self._loss2str(set_, i, n, loss_avg),
-                # desc_short=f'{set_} {i}/{n - 1} | {loss_avg[set_ + "_loss"]:.3e}',
-            )
+            pbar.set_description(desc=self._loss2str(set_, i, n, loss_avg))
             j += 1
         return loss
 
@@ -132,6 +128,7 @@ class Trainer:
             for set_, loader in loader_dict.items():
                 self.process_epoch(set_, loader, i, train_epochs)
             log = self.end_epoch(i)
+            torch.cuda.empty_cache()
             print(log)
             self.model.lr_scheduler.step(log["val_loss"])
             if self.model.get_lr() < 5e-8 or math.isnan(log["train_loss"]):

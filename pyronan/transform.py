@@ -18,6 +18,7 @@ parser_transform.add_argument("--distort_limit", type=float, default=0.1)
 parser_transform.add_argument("--cutout_max_holes", type=int, default=20)
 parser_transform.add_argument("--cutout_max_width", type=int, default=20)
 parser_transform.add_argument("--cutout_max_height", type=int, default=20)
+parser_transform.add_argument("--p_shift_scale_rotate", type=float, default=0.5)
 
 
 def make_augmentation_transforms(args):
@@ -41,6 +42,7 @@ def make_augmentation_transforms(args):
                 scale_limit=args.scale_limit,
                 rotate_limit=args.rotate_limit,
                 border_mode=cv2.BORDER_CONSTANT,
+                p=args.p_shift_scale_rotate,
             )
         elif transform_name == "RandomBrightnessContrast":
             transform = albumentations.RandomBrightnessContrast(
