@@ -93,9 +93,10 @@ def checkpoint(epoch, log, model=None, args=None, path=None):
     path.mkdir(exist_ok=True)
     if args is not None:
         with open(path / "args.json", "w") as f:
-            json.dump(vars(args), f, indent=4, sort_keys=True)
-        with open(path, "w") as f:
-            pickle.dump(args / "args.pickle", f, protocol=pickle.HIGHEST_PROTOCOL)
+            dict_ = {k: str(v) for k, v in vars(args).items()}
+            json.dump(dict_, f, indent=4, sort_keys=True)
+        with open(path / "args.pickle", "wb") as f:
+            pickle.dump(args, f, protocol=pickle.HIGHEST_PROTOCOL)
     with open(path / "log.json", "w") as f:
         json.dump(log, f, indent=4)
     if getattr(args, "save_all", False):

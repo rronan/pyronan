@@ -8,17 +8,10 @@ from copy import deepcopy
 
 import numpy as np
 import torch
+from pyronan.utils.misc import checkpoint
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 
-from pyronan.utils.misc import checkpoint
-
-<<<<<<< HEAD
-
-=======
-
-
->>>>>>> wip distribute
 parser_train = ArgumentParser(add_help=False)
 parser_train.add_argument("--batch_size", type=int, help="batch size")
 parser_train.add_argument("--num_workers", type=int, default=20)

@@ -63,7 +63,7 @@ class Model:
         self.is_data_parallel = False
         self.is_amp = False
         self.nn_module = nn_module
-        if nn_module is None:
+        if nn_module is not None:
             self.set_optim(args)
 
     @staticmethod
