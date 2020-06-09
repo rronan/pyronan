@@ -1,5 +1,6 @@
 import hashlib
 import math
+import os
 from io import BytesIO
 from itertools import cycle
 
@@ -139,11 +140,9 @@ def to_image_server(im):
     except AttributeError:
         im.savefig(byteimage)
     im_hash = hashlib.sha256(im.tobytes()).hexdigest()
-    name = f"/meleze/data0/public_html/rriochet/image_server/{im_hash}.png"
+    name = os.environ["HTML_FOLDER"] + f"/{im_hash}.png"
     im.save(name)
-    print(
-        f"https://www.rocq.inria.fr/cluster-willow/rriochet/image_server/{im_hash}.png"
-    )
+    print(os.environ["HTML_ADRESS"] + f"/{im_hash}.png")
 
 
 def ti(x, normalize=None):

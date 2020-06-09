@@ -24,7 +24,7 @@ parser_model.add_argument(
 )
 parser_model.add_argument("--weight_decay", type=float, default=0)
 parser_model.add_argument("--load", type=Path, default=None)
-parser_model.add_argument("--restore_optmizer", action="store_true")
+parser_model.add_argument("--restore_optimizer", action="store_true")
 parser_model.add_argument("--data_parallel", action="store_true")
 parser_model.add_argument("--gpu", action="store_true", help="Use NVIDIA GPU")
 parser_model.add_argument("--amp_level", choices=["O0", "O1", "O2", "O3"], default=None)
@@ -44,12 +44,14 @@ def make_model(
         Model = locate(Model)
     model = Model(args)
     if load is not None:
-        model.load(load, restore_optimizer)
+        model.load(load)
     if data_parallel:
         model.data_parallel()
         print("Training on", torch.cuda.device_count(), "GPUs!")
     if gpu:
         model.gpu()
+    if restore_optimizer:
+        model.restore_optimizer(load)
     if amp_level is not None:
         model.amp(amp_level)
     print(f"n parameters: {model.get_num_parameters()}")
@@ -114,14 +116,16 @@ class Model:
         chkpt = torch.load(path, map_location=self.device)
         if "weights" in chkpt:
             weights = {
-                k.replace(".module", "", 1): v for k, v in chkpt["weights"].items()
+                k.replace("module.", "", 1): v for k, v in chkpt["weights"].items()
             }
             self.nn_module.load_state_dict(weights)
         else:
             self.nn_module.load_state_dict(chkpt)
-        if restore_optimizer and "optimizer" in chkpt:
-            logging.info(f"loading optimizer as well")
-            self.optimizer.load_state_dict(chkpt["optimizer"])
+
+    def restore_optimizer(self, path):
+        logging.info(f"restoring optimizer {path}")
+        chkpt = torch.load(path, map_location=self.device)
+        self.optimizer.load_state_dict(chkpt["optimizer"])
 
     def save(self, path, epoch):
         with open(path / f"{self.__class__.__name__}.txt", "w") as f:
