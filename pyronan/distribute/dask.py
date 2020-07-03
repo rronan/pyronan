@@ -1,19 +1,13 @@
 import argparse
-import itertools
 import logging
 import os
-import time
 import traceback
-from collections import OrderedDict
-from copy import copy
 from pathlib import Path
 from pydoc import locate
 
-import yaml
 from dask.distributed import Client, as_completed
 from dask_jobqueue import SGECluster
-
-from pyronan.utils.misc import append_timestamp
+from pyronan.distribute.utils import make_config, make_opt_list, parser_distribute
 
 logging.basicConfig(level=logging.INFO)
 
@@ -58,42 +52,6 @@ def init_cluster(name, args):
     return cluster
 
 
-def make_config(config_path):
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-    if "name" not in config:
-        config["name"] = config_path.stem
-    config["name"] = append_timestamp(config["name"], end=True)
-    return config
-
-
-def update_opt(opt, type_dict, dict_):
-    for k, v in dict_.items():
-        if type_dict[k] is not None:
-            if type(v) is list:
-                v = [type_dict[k](e) for e in v]
-            else:
-                v = type_dict[k](v)
-        setattr(opt, k, v)
-    return opt
-
-
-def make_opt_list(config, merge_names):
-    res = []
-    opt, type_dict = locate(config["parser"])([])
-    baseopt = update_opt(opt, type_dict, config["args"])
-    for grid in config["grids"]:
-        grid = OrderedDict(grid)
-        for values in itertools.product(*grid.values()):
-            opt = update_opt(copy(baseopt), type_dict, dict(zip(grid.keys(), values)))
-            if merge_names:
-                opt.name = config["name"]
-            else:
-                opt.name = "_".join([config["name"], f"{len(res):02d}"])
-            res.append(opt)
-    return res
-
-
 def submit(cluster, config, merge_names):
     client = Client(cluster)
     opt_list = make_opt_list(config, merge_names)
@@ -104,12 +62,8 @@ def submit(cluster, config, merge_names):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("config_path", type=Path, default="sweep.yaml")
+    parser = argparse.ArgumentParser(parents=[parser_distribute])
     parser.add_argument("--exclude_nodes", nargs="+", default=[])
-    parser.add_argument(
-        "--log_dir", type=Path, default=os.environ.get("PYRONAN_LOG_DIR")
-    )
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=32)
     parser.add_argument("--h_vmem", type=int, default=200000)
@@ -117,13 +71,9 @@ def parse_args():
     parser.add_argument(
         "--export_var", nargs="*", default=["PYTHONPATH", "TORCH_MODEL_ZOO"]
     )
-    parser.add_argument("--ncpus", type=int, default=4)
-    parser.add_argument("--ngpus", type=int, default=1)
-    parser.add_argument("--jobs", type=int, default=1)
     parser.add_argument(
         "--spill_dir", type=Path, default="/sequoia/data2/rriochet/dask", help="scratch"
     )
-    parser.add_argument("--merge_names", action="store_true")
     args = parser.parse_args()
     return args
 
