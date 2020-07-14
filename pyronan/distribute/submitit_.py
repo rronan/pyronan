@@ -1,12 +1,12 @@
 import argparse
+import imp
 import logging
 from pathlib import Path
 from pydoc import locate
 
 import submitit
-from dask.distributed import Client, as_completed
-from dask_jobqueue import SGECluster
-from pyronan.distribute.utils import make_config, make_opt_list, parser_distribute
+
+from pyronan.distribute.utils import make_opt_list, parser_distribute
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,9 +22,8 @@ def init_executor(executor, args):
 
 def submit(executor, config, merge_names):
     opt_list = make_opt_list(config, merge_names)
-    print(opt_list)
-    func = locate(config["function"])
-    jobs = executor.map_array(func, opt_list)
+    print(*opt_list, sep="\n************\n\n")
+    jobs = executor.map_array(config.FUNCTION, opt_list)
     return jobs
 
 
@@ -45,13 +44,14 @@ def parse_args():
 def main():
     args = parse_args()
     logging.info(args)
-    config = make_config(args.config_path)
-    print(config["name"])
-    executor = init_executor(config["name"], args)
-    jobs = submit(executor, config, args.merge_names)
-    logging.info(jobs.job_id)
-    output = jobs.result()
-    print(output)
+    config = imp.load_source("config", args.config_file)
+    if not hasattr(config, "NAME"):
+        config.NAME = args.config_file.stem
+    print(config.NAME)
+    executor = init_executor(config.NAME, args)
+    job_list = submit(executor, config, args.merge_names)
+    logging.info([job.job_id for job in job_list])
+    print(*[job.result() for job in job_list], sep="\n************\n\n")
 
 
 if __name__ == "__main__":
