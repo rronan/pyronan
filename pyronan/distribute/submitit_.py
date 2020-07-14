@@ -15,7 +15,9 @@ def init_executor(executor, args):
     log_folder = f"{args.log_dir}/%j"
     executor = submitit.AutoExecutor(folder=log_folder)
     executor.update_parameters(
-        timeout_min=4, slurm_partition="dev", gpus_per_node=args.ngpus
+        timeout_min=args.timeout_hour * 60,
+        slurm_partition="dev",
+        gpus_per_node=args.ngpus,
     )
     return executor
 
@@ -33,6 +35,7 @@ def parse_args():
     parser.add_argument("--queue", default="gaia.q,zeus.q,titan.q,chronos.q")
     parser.add_argument("--mem_req", type=int, default=32)
     parser.add_argument("--h_vmem", type=int, default=200000)
+    parser.add_argument("--timeout_hour", type=int, default=48)
     parser.add_argument("--to_source", default=None)
     parser.add_argument(
         "--export_var", nargs="*", default=["PYTHONPATH", "TORCH_MODEL_ZOO"]

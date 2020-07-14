@@ -23,6 +23,7 @@ parser_distribute.add_argument("--merge_names", action="store_true")
 
 def make_opt_list(config, merge_names):
     res = []
+    name = append_timestamp(config.NAME)
     for grid in config.GRID_LIST:
         grid = OrderedDict(grid)
         for values in itertools.product(*grid.values()):
@@ -30,8 +31,8 @@ def make_opt_list(config, merge_names):
             for k, v in zip(grid.keys(), values):
                 setattr(opt, k, v)
             if merge_names:
-                opt.name = config.NAME
+                opt.name = name
             else:
-                opt.name = "_".join([config.NAME, f"{len(res):02d}"])
+                opt.name = "_".join([name, f"{len(res):02d}"])
             res.append(opt)
     return res
