@@ -16,7 +16,7 @@ def init_executor(executor, args):
     executor = submitit.AutoExecutor(folder=log_folder)
     executor.update_parameters(
         timeout_min=args.timeout_hour * 60,
-        slurm_partition="dev",
+        slurm_partition=args.partition,
         gpus_per_node=args.ngpus,
     )
     return executor
@@ -24,7 +24,6 @@ def init_executor(executor, args):
 
 def submit(executor, config, merge_names):
     opt_list = make_opt_list(config, merge_names)
-    print(*opt_list, sep="\n************\n\n")
     jobs = executor.map_array(config.FUNCTION, opt_list)
     return jobs
 
@@ -37,6 +36,7 @@ def parse_args():
     parser.add_argument("--h_vmem", type=int, default=200000)
     parser.add_argument("--timeout_hour", type=int, default=48)
     parser.add_argument("--to_source", default=None)
+    parser.add_argument("--partition", default="learnfair")
     parser.add_argument(
         "--export_var", nargs="*", default=["PYTHONPATH", "TORCH_MODEL_ZOO"]
     )
@@ -54,7 +54,8 @@ def main():
     executor = init_executor(config.NAME, args)
     job_list = submit(executor, config, args.merge_names)
     logging.info([job.job_id for job in job_list])
-    print(*[job.result() for job in job_list], sep="\n************\n\n")
+    output_list = [job.result() for job in job_list]
+    print(*output_list, sep="\n+++++++++++\n\n")
 
 
 if __name__ == "__main__":

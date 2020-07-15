@@ -83,10 +83,6 @@ def append_timestamp(name, end=False):
             return time.strftime("%y%m%d_%H%M%S") + "_" + name
 
 
-# with open("filename.pickle", "rb") as handle:
-#     b = pickle.load(handle)
-
-
 def checkpoint(epoch, log, model=None, args=None, path=None):
     if path is None:
         path = pathlib.Path(args.checkpoint)
