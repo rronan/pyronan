@@ -3,6 +3,7 @@ import random
 from itertools import cycle, zip_longest
 
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -146,4 +147,5 @@ def fig2img(fig):
 
 def fig2arr(fig):
     img = fig2img(fig)
+    plt.close(fig)
     return np.array(img)

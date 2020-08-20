@@ -9,5 +9,5 @@ setup(
     license="MIT",
     packages=["pyronan"],
     zip_safe=False,
-    install_requires=["torch", "numpy"],
+    install_requires=["torch==1.5.0", "numpy"],
 )

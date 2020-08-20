@@ -11,9 +11,9 @@ import yaml
 from pyronan.utils.misc import append_timestamp
 
 parser_distribute = argparse.ArgumentParser(add_help=False)
-parser_distribute.add_argument("config_file", default="sweep.yaml")
+parser_distribute.add_argument("config_file", default="sweep.yaml", type=Path)
 parser_distribute.add_argument(
-    "--log_dir", type=Path, default=os.environ.get("PYRONAN_LOG_DIR")
+    "--log_dir", type=Path, default=os.environ.get("PYRONAN_LOGDIR")
 )
 parser_distribute.add_argument("--ncpus", type=int, default=4)
 parser_distribute.add_argument("--ngpus", type=int, default=1)
@@ -21,9 +21,9 @@ parser_distribute.add_argument("--jobs", type=int, default=1)
 parser_distribute.add_argument("--merge_names", action="store_true")
 
 
-def make_opt_list(config, merge_names):
+def make_opt_list(config, prefix, merge_names):
     res = []
-    name = append_timestamp(config.NAME)
+    name = append_timestamp(prefix)
     print(config.BASE_ARGS)
     for grid in config.GRID_LIST:
         grid = OrderedDict(grid)
