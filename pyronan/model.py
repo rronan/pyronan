@@ -59,14 +59,11 @@ def make_model(
 
 
 class Model:
-    def __init__(self, nn_module=None, args=parser_model.parse_args([])):
+    def __init__(self):
         super().__init__()
         self.device = "cpu"
         self.is_data_parallel = False
         self.is_amp = False
-        self.nn_module = nn_module
-        if nn_module is not None:
-            self.set_optim(args)
 
     @staticmethod
     def _lr_arg(nn_module, lr):

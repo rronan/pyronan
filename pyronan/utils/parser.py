@@ -1,6 +1,5 @@
 from argparse import ArgumentParser
-
-from path import Path
+from pathlib import Path
 
 from pyronan.utils.misc import append_timestamp
 
